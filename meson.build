@@ -2,13 +2,17 @@ project(
   'rcl',
   'c',
   version: '0.1',
-  default_options: ['warning_level=3', 'c_std=c99'],
+  default_options: [
+    'warning_level=3',
+    'c_std=c99',
+    'c_args=-Wno-override-init -Wno-initializer-overrides -Wno-gnu-auto-type',
+  ],
   license: 'GPL-3.0',
 )
 
 # These arguments are only used to build the shared library
 # not the executables that use the library.
-lib_args = ['-DBUILDING_RCL', '-Wno-override-init']
+lib_args = ['-DBUILDING_RCL']
 
 sources = files(
   './src/array.c',

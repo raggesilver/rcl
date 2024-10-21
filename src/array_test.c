@@ -2,6 +2,8 @@
 #include "array.h"
 #include "unity.h"
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 void setUp(void) {}
 
@@ -40,11 +42,28 @@ static void array_grows(void) {
   array_destroy(&arr);
 }
 
+static void _hacky_free(void *ptr) { free(*(void **)ptr); }
+
+static void array_free_func_is_called(void) {
+  array_t *arr = array_new(char *, .free_func = &_hacky_free);
+
+  array_push(arr, strdup("hello"));
+  array_push(arr, strdup("world"));
+
+  ARRAY_OF(char *) *str_arr = (void *)(arr);
+
+  TEST_ASSERT_EQUAL(strcmp(str_arr->data[0], "hello"), 0);
+  TEST_ASSERT_EQUAL(strcmp(str_arr->data[1], "world"), 0);
+
+  array_destroy(&arr);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
   RUN_TEST(array_basic_usage);
   RUN_TEST(array_grows);
+  RUN_TEST(array_free_func_is_called);
 
   return UNITY_END();
 }
