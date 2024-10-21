@@ -21,15 +21,18 @@ void array_free(array_t *arr) {
     return;
 
   if (arr->free_func != NULL) {
-    for (size_t i = 0; i < arr->length; i++) {
-      void *item = ((char *)arr->data) + i * arr->item_size;
-      dprintf(2, "freeing item %zu, %20s, offset: %zu, %p, %p\n", i,
-              ((char **)arr->data)[i], i * arr->item_size, item,
-              ((void **)arr->data)[i]);
-      // We don't know the type of the item, so we need to calculate the
-      // address of the item using pointer arithmetic. We use the item_size
-      // to calculate the offset of the item from the start of the data array.
-      arr->free_func(item);
+    if (arr->item_size != sizeof(void *)) {
+      fprintf(
+          stderr,
+          "Warning: free function set, but item size is not sizeof(void *)\n");
+    } else {
+      ARRAY_OF(void *) *_arr = (void *)arr;
+      for (size_t i = 0; i < _arr->length; i++) {
+        // We don't know the type of the item, so we need to calculate the
+        // address of the item using pointer arithmetic. We use the item_size
+        // to calculate the offset of the item from the start of the data array.
+        _arr->free_func(_arr->data[i]);
+      }
     }
   }
 

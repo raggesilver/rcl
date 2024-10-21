@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define ARRAY_DEFAULT_CAPACITY 32
+
 /**
  * A function that frees an element of an array. If set, it will be called on
  * each element of the array when the array is destroyed or an element is
  * destroyed.
  *
- * @param data a pointer to the element. if you store `char *` in the array, you
- * this function will receive `char **`. **There is no scenario where passing
- * {@link free} will work.** It is a mistake to set this function on
- * arrays that store primitive types (such as int, float, bool, etc.).
+ * @param ptr the element to free. This is the same pointer that was stored in
+ * the array. If you stored a `char*` in the array, this will be a `char*`.
  */
-typedef void(array_free_func)(void *);
+typedef void(array_free_func)(void *ptr);
 
 typedef struct s_array {
   void *data;
@@ -38,8 +38,6 @@ typedef struct s_array_init {
  * @return a pointer to the new array.
  */
 array_t *array_new_full(array_init_t init);
-
-#define ARRAY_DEFAULT_CAPACITY 20
 
 #define array_new(type, ...)                                                   \
   array_new_full((array_init_t){.capacity = ARRAY_DEFAULT_CAPACITY,            \
@@ -65,8 +63,7 @@ array_t *array_new_full(array_init_t init);
 #define array_push(arr, item)                                                  \
   do {                                                                         \
     __auto_type __item = (item);                                               \
-    __auto_type __void_arr = (void *)(arr);                                    \
-    __auto_type __arr = (ARRAY_OF(__typeof__((__item))) *)(__void_arr);        \
+    __auto_type __arr = (ARRAY_OF(__typeof__((__item))) *)(arr);               \
     if (__arr->length == __arr->capacity) {                                    \
       __arr->data =                                                            \
           realloc(__arr->data, __arr->capacity * 2 * __arr->item_size);        \

@@ -42,10 +42,8 @@ static void array_grows(void) {
   array_destroy(&arr);
 }
 
-static void _hacky_free(void *ptr) { free(*(void **)ptr); }
-
 static void array_free_func_is_called(void) {
-  array_t *arr = array_new(char *, .free_func = &_hacky_free);
+  array_t *arr = array_new(char *, .free_func = &free);
 
   array_push(arr, strdup("hello"));
   array_push(arr, strdup("world"));
