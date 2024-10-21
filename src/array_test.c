@@ -108,6 +108,56 @@ static void array_array_of(void) {
   array_destroy(&arr);
 }
 
+static void array_removes(void) {
+  array_t *arr = array_new(int, );
+
+  array_push(arr, 1);
+  array_push(arr, 2);
+  array_push(arr, 3);
+
+  TEST_ASSERT_EQUAL(3, arr->length);
+
+  int removed;
+  array_remove(arr, 1, &removed);
+
+  TEST_ASSERT_EQUAL(2, removed);
+
+  array_destroy(&arr);
+}
+
+static void array_removes2(void) {
+  array_t *arr = array_new(char *, .free_func = &free);
+
+  array_push(arr, strdup("hello"));
+  array_push(arr, strdup("world"));
+
+  TEST_ASSERT_EQUAL(2, arr->length);
+
+  char *removed;
+  array_remove(arr, 0, &removed);
+
+  TEST_ASSERT_EQUAL(0, strcmp(removed, "hello"));
+
+  free(removed);
+  array_destroy(&arr);
+}
+
+static void array_deletes(void) {
+  array_t *arr = array_new(char *, .free_func = &free);
+
+  array_push(arr, strdup("hello"));
+  array_push(arr, strdup("world"));
+
+  TEST_ASSERT_EQUAL(2, arr->length);
+
+  array_delete(arr, 0);
+
+  TEST_ASSERT_EQUAL(1, arr->length);
+  TEST_ASSERT_EQUAL(0, strcmp(((char **)arr->data)[0], "world"));
+
+  array_destroy(&arr);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -116,6 +166,9 @@ int main(void) {
   RUN_TEST(array_free_func_is_called);
   RUN_TEST(array_sorts);
   RUN_TEST(array_array_of);
+  RUN_TEST(array_removes);
+  RUN_TEST(array_removes2);
+  RUN_TEST(array_deletes);
 
   return UNITY_END();
 }

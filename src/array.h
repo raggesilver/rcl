@@ -106,3 +106,22 @@ void array_free(array_t *arr);
  * @param cmp the comparison function to use.
  */
 void array_sort(array_t *arr, array_compare_func *cmp);
+
+/**
+ * Delete an element from an array.
+ *
+ * @param arr the array to delete from.
+ * @param index the index of the element to delete.
+ */
+void array_delete(array_t *arr, size_t index);
+
+/**
+ * Remove an element from an array. The element will not be freed, instead it
+ * will be copied to the location pointed to by `item_out`.
+ *
+ * @param arr the array to remove from.
+ * @param index the index of the element to remove.
+ * @param item_out a pointer to where the removed item should be stored.
+ */
+__attribute__((nonnull(3))) void array_remove(array_t *arr, size_t index,
+                                              void *item_out);
