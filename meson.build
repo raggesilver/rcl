@@ -5,7 +5,7 @@ project(
   default_options: [
     'warning_level=3',
     'c_std=c99',
-    'c_args=-Wno-override-init -Wno-initializer-overrides -Wno-gnu-auto-type',
+    'c_args=-Wno-override-init -Wno-initializer-overrides -Wno-gnu-auto-type -Wno-pedantic',
   ],
   license: 'GPL-3.0',
 )

@@ -47,3 +47,16 @@ __attribute__((always_inline)) inline void array_destroy(array_t **arr) {
   array_free(*arr);
   *arr = NULL;
 }
+
+void array_sort(array_t *arr, array_compare_func *cmp) {
+  qsort(arr->data, arr->length, arr->item_size, cmp);
+}
+
+__attribute__((always_inline)) static inline int
+reverse_compare(void *cmp, const void *a, const void *b) {
+  return -((array_compare_func *)cmp)(a, b);
+}
+
+void array_rsort(array_t *arr, array_compare_func *cmp) {
+  qsort_r(arr->data, arr->length, arr->item_size, (void *)cmp, reverse_compare);
+}

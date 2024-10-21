@@ -16,6 +16,18 @@
  */
 typedef void(array_free_func)(void *ptr);
 
+/**
+ * A function that compares two elements of an array. This function should
+ * return a negative number if `a` is less than `b`, a positive number if `a` is
+ * greater than `b`, and 0 if `a` is equal to `b`.
+ *
+ * @param a a pointer to the first element to compare.
+ * @param b a pointer to the second element to compare.
+ * @return a negative number if `a` is less than `b`, a positive number if `a`
+ * is greater than `b`, and 0 if `a` is equal to `b`.
+ */
+typedef int(array_compare_func)(const void *a, const void *b);
+
 typedef struct s_array {
   void *data;
   size_t capacity;
@@ -51,7 +63,8 @@ array_t *array_new_full(array_init_t init);
     size_t capacity;                                                           \
     size_t length;                                                             \
     size_t item_size;                                                          \
-    void (*free_func)(type *);                                                 \
+                                                                               \
+    array_free_func *free_func;                                                \
   }
 
 /**
@@ -63,13 +76,13 @@ array_t *array_new_full(array_init_t init);
 #define array_push(arr, item)                                                  \
   do {                                                                         \
     __auto_type __item = (item);                                               \
-    __auto_type __arr = (ARRAY_OF(__typeof__((__item))) *)(arr);               \
+    array_t *__arr = (arr);                                                    \
     if (__arr->length == __arr->capacity) {                                    \
       __arr->data =                                                            \
           realloc(__arr->data, __arr->capacity * 2 * __arr->item_size);        \
       __arr->capacity *= 2;                                                    \
     }                                                                          \
-    __arr->data[__arr->length++] = __item;                                     \
+    ((__typeof__(__item) *)__arr->data)[__arr->length++] = __item;             \
   } while (0)
 
 /**
@@ -85,3 +98,19 @@ void array_destroy(array_t **arr);
  * @param arr the array to free.
  */
 void array_free(array_t *arr);
+
+/**
+ * Sort an array using a comparison function.
+ *
+ * @param arr the array to sort.
+ * @param cmp the comparison function to use.
+ */
+void array_sort(array_t *arr, array_compare_func *cmp);
+
+/**
+ * Sort an array in reverse order using a comparison function.
+ *
+ * @param arr the array to sort.
+ * @param cmp the comparison function to use.
+ */
+void array_rsort(array_t *arr, array_compare_func *cmp);
