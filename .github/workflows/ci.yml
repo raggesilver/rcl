@@ -16,11 +16,11 @@ jobs:
       - name: Install dependencies
         run: python -m pip install meson ninja
       - name: Configure Project
-        run: meson setup builddir/
+        run: meson setup builddir/ -Dtests=true -Dc_std=gnu99
         env:
           CC: gcc
       - name: Run Tests
-        run: meson test -C builddir/ -v
+        run: meson test -C builddir/ --wrap='valgrind --leak-check=full --error-exitcode=1' -v
       - name: Upload Test Log
         uses: actions/upload-artifact@v4
         if: failure()

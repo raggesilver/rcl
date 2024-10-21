@@ -2,7 +2,8 @@ project(
   'rcl',
   'c',
   version: '0.1',
-  default_options: ['warning_level=3', 'c_std=c99', 'optmization=2'],
+  default_options: ['warning_level=3', 'c_std=c99'],
+  license: 'GPL-3.0',
 )
 
 # These arguments are only used to build the shared library
