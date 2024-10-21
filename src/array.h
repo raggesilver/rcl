@@ -106,11 +106,3 @@ void array_free(array_t *arr);
  * @param cmp the comparison function to use.
  */
 void array_sort(array_t *arr, array_compare_func *cmp);
-
-/**
- * Sort an array in reverse order using a comparison function.
- *
- * @param arr the array to sort.
- * @param cmp the comparison function to use.
- */
-void array_rsort(array_t *arr, array_compare_func *cmp);

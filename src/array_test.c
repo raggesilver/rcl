@@ -81,12 +81,6 @@ static void array_sorts(void) {
   TEST_ASSERT_EQUAL(2, int_arr->data[1]);
   TEST_ASSERT_EQUAL(3, int_arr->data[2]);
 
-  array_rsort(arr, int_cmp);
-
-  TEST_ASSERT_EQUAL(3, int_arr->data[0]);
-  TEST_ASSERT_EQUAL(2, int_arr->data[1]);
-  TEST_ASSERT_EQUAL(1, int_arr->data[2]);
-
   array_destroy(&arr);
 }
 
