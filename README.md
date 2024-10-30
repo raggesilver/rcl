@@ -1,4 +1,10 @@
-# RCL — Raggesilver's C Library
+<div align="center">
+
+<h1>RCL — Raggesilver's C Library</h1>
+
+<img src="https://github.com/raggesilver/rcl/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+
+</div>
 
 This is a collection of useful functions and data structures I use in my C
 projects. I do not have the time to write full documentation, although all
