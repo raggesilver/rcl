@@ -11,7 +11,7 @@ library unless you know what you're doing.
 - `array_t` — Generic, dynamic array. Includes helper functions for accessing
   `arr->data` with any type.
 - `string_t` — String. Includes the basic stuff you'd expect from a string
-  type in a modern language. (coming soon)
+  type in a modern language.
 - `list_t` — Linked list. (coming soon)
 - `string_builder_t` — A string builder. Useful for building one string out of
   many, without reallocating a string on each concatenation. (coming soon)

@@ -19,8 +19,8 @@ sources = files(
   './src/array.h',
   './src/hashtable.c',
   './src/hashtable.h',
-  './src/rcl.c',
-  './src/rcl.h',
+  './src/rcl_string.c',
+  './src/rcl_string.h',
 )
 
 incs = include_directories(
@@ -41,7 +41,9 @@ rcl_dep = declare_dependency(include_directories: incs, link_with: shlib)
 
 # Make this library usable from the system's
 # package manager.
-install_headers('./src/rcl.h', subdir: 'rcl')
+install_headers('./src/array.h', subdir: 'rcl')
+install_headers('./src/hashtable.h', subdir: 'rcl')
+install_headers('./src/rcl_string.h', subdir: 'rcl')
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(
@@ -52,11 +54,6 @@ pkg_mod.generate(
   libraries: shlib,
   version: '0.1',
 )
-
-if get_option('tests')
-  test_exe = executable('rcl_test', 'src' / 'rcl_test.c', dependencies: [rcl_dep])
-  test('rcl', test_exe)
-endif
 
 if get_option('tests')
   unity_subproject = subproject('unity')
@@ -75,4 +72,11 @@ if get_option('tests')
     dependencies: [rcl_dep, unity_dependency],
   )
   test('array', array_test_exe)
+
+  rcl_string_test_exe = executable(
+    'rcl_string',
+    'src' / 'rcl_string_test.c',
+    dependencies: [rcl_dep, unity_dependency],
+  )
+  test('rcl_string', rcl_string_test_exe)
 endif
