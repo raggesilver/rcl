@@ -158,6 +158,57 @@ static void array_deletes(void) {
   array_destroy(&arr);
 }
 
+static int map_double(int el) { return el * 2; }
+
+static char *map_int_to_str(int el) {
+  char *res;
+  asprintf(&res, "%d", el);
+  return res;
+}
+
+static void array_test_map(void) {
+  array_t *arr = array_new(int, );
+
+  array_push(arr, 1);
+  array_push(arr, 2);
+  array_push(arr, 3);
+
+  array_t *_res = array_map(arr, int, int, map_double);
+
+  ARRAY_OF(int) *res = (void *)_res;
+
+  TEST_ASSERT_EQUAL(res->data[0], 2);
+  TEST_ASSERT_EQUAL(res->data[1], 4);
+  TEST_ASSERT_EQUAL(res->data[2], 6);
+
+  TEST_ASSERT_EQUAL(res->length, arr->length);
+
+  array_free(arr);
+  array_free(_res);
+}
+
+static void array_test_map2(void) {
+  array_t *arr = array_new(int, );
+
+  array_push(arr, 204);
+  array_push(arr, 303);
+  array_push(arr, 402);
+
+  array_t *_res = array_map(arr, int, char *, map_int_to_str);
+  _res->free_func = free;
+
+  ARRAY_OF(char *) *res = (void *)_res;
+
+  TEST_ASSERT_EQUAL_STRING(res->data[0], "204");
+  TEST_ASSERT_EQUAL_STRING(res->data[1], "303");
+  TEST_ASSERT_EQUAL_STRING(res->data[2], "402");
+
+  TEST_ASSERT_EQUAL(res->length, arr->length);
+
+  array_free(arr);
+  array_free(_res);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -169,6 +220,8 @@ int main(void) {
   RUN_TEST(array_removes);
   RUN_TEST(array_removes2);
   RUN_TEST(array_deletes);
+  RUN_TEST(array_test_map);
+  RUN_TEST(array_test_map2);
 
   return UNITY_END();
 }

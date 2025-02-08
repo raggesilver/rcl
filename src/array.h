@@ -86,6 +86,34 @@ array_t *array_new_full(array_init_t init);
   } while (0)
 
 /**
+ * Create a new array by transforming each element from the source array into
+ * a new value in the new array.
+ *
+ * Be VERY CAREFUL, as this function does not set a free_func on the new array.
+ * If you do not do that yourself, you may create a memory leak.
+ *
+ * @param arr the source array
+ * @param from_type type of elements on source array
+ * @param to_type type of elements on the new array
+ * @param func a function that takes from_type and returns to_type
+ * @returns the new array
+ */
+#define array_map(arr, from_type, to_type, func)                               \
+  ({                                                                           \
+    ARRAY_OF(from_type) *__arr = (void *)(arr);                                \
+    array_t *__res =                                                           \
+        array_new_full((array_init_t){.capacity = __arr->length,               \
+                                      .item_size = sizeof(to_type),            \
+                                      .free_func = NULL});                     \
+    ARRAY_OF(to_type) *__res_arr = (void *)__res;                              \
+    for (size_t i = 0; i < __arr->length; i++) {                               \
+      __res_arr->data[i] = func(__arr->data[i]);                               \
+    }                                                                          \
+    __res->length = __arr->length;                                             \
+    __res;                                                                     \
+  })
+
+/**
  * Free an array and set its pointer to NULL.
  *
  * @param arr a pointer to the array to destroy.
