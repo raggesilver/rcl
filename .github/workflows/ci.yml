@@ -16,7 +16,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install meson ninja
       - name: Install valgrind
-        run: sudo apt-get install -y valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
       - name: Configure Project
         run: meson setup builddir/ -Dtests=true -Dc_std=gnu99
         env:
