@@ -34,6 +34,12 @@ typedef struct s_array {
   size_t length;
   size_t item_size;
 
+  /**
+   * A function that frees an element of the array. If set, it will be called on
+   * each element of the array when the array is destroyed or an element is
+   * destroyed. Mind you, setting a function for non-pointer types will result
+   * in wonderful segfaults.
+   */
   array_free_func *free_func;
 } array_t;
 

@@ -19,31 +19,34 @@ sources = files(
   './src/array.h',
   './src/hashtable.c',
   './src/hashtable.h',
-  './src/rcl_string.c',
-  './src/rcl_string.h',
+  './src/string.c',
+  './src/string.h',
 )
 
-incs = include_directories(
-  './src',
-)
+# incs = include_directories(
+#   './src',
+# )
 
 shlib = shared_library(
   'rcl',
   sources,
-  include_directories: incs,
+  # include_directories: incs,
   install: true,
   c_args: lib_args,
   # gnu_symbol_visibility: 'hidden',
 )
 
 # Make this library usable as a Meson subproject.
-rcl_dep = declare_dependency(include_directories: incs, link_with: shlib)
+rcl_dep = declare_dependency(
+  # include_directories: incs,
+  link_with: shlib,
+)
 
 # Make this library usable from the system's
 # package manager.
 install_headers('./src/array.h', subdir: 'rcl')
 install_headers('./src/hashtable.h', subdir: 'rcl')
-install_headers('./src/rcl_string.h', subdir: 'rcl')
+install_headers('./src/string.h', subdir: 'rcl')
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(
@@ -74,9 +77,9 @@ if get_option('tests')
   test('array', array_test_exe)
 
   rcl_string_test_exe = executable(
-    'rcl_string',
-    'src' / 'rcl_string_test.c',
+    'string',
+    'src' / 'string_test.c',
     dependencies: [rcl_dep, unity_dependency],
   )
-  test('rcl_string', rcl_string_test_exe)
+  test('string', rcl_string_test_exe)
 endif
