@@ -186,7 +186,7 @@ void hashtable_free(hashtable_t *self) {
 }
 
 bool hashtable_delete(hashtable_t *self, const char *key) {
-  size_t index = self->hash_func(key) % self->capacity;
+  size_t index = hashtable_hash(self, key);
   item_t *item = &self->items[index];
 
   if (item->key == NULL) {
