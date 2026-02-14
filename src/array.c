@@ -73,9 +73,9 @@ void array_delete(array_t *arr, size_t index) {
 
   if (index < arr->length - 1) {
     // Move all the items after the deleted item one position to the left.
-    memcpy((char *)arr->data + index * arr->item_size,
-           (char *)arr->data + (index + 1) * arr->item_size,
-           (arr->length - index - 1) * arr->item_size);
+    memmove((char *)arr->data + index * arr->item_size,
+            (char *)arr->data + (index + 1) * arr->item_size,
+            (arr->length - index - 1) * arr->item_size);
   }
 
   arr->length--;
@@ -92,9 +92,9 @@ void array_remove(array_t *arr, size_t index, void *item_out) {
 
   if (index < arr->length - 1) {
     // Move all the items after the deleted item one position to the left.
-    memcpy((char *)arr->data + index * arr->item_size,
-           (char *)arr->data + (index + 1) * arr->item_size,
-           (arr->length - index - 1) * arr->item_size);
+    memmove((char *)arr->data + index * arr->item_size,
+            (char *)arr->data + (index + 1) * arr->item_size,
+            (arr->length - index - 1) * arr->item_size);
   }
 
   arr->length--;

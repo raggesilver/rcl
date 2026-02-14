@@ -107,8 +107,10 @@ array_t *array_new_full(array_init_t init);
 #define array_map(arr, from_type, to_type, func)                               \
   ({                                                                           \
     ARRAY_OF(from_type) *__arr = (void *)(arr);                                \
+    size_t __cap =                                                              \
+        __arr->length > 0 ? __arr->length : ARRAY_DEFAULT_CAPACITY;            \
     array_t *__res =                                                           \
-        array_new_full((array_init_t){.capacity = __arr->length,               \
+        array_new_full((array_init_t){.capacity = __cap,                       \
                                       .item_size = sizeof(to_type),            \
                                       .free_func = NULL});                     \
     ARRAY_OF(to_type) *__res_arr = (void *)__res;                              \
