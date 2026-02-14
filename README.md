@@ -11,6 +11,10 @@ projects. I do not have the time to write full documentation, although all
 functions are documented in their header files. I don't recommend using this
 library unless you know what you're doing.
 
+> **Note:** This library does not check for `malloc`/`calloc`/`realloc`
+> returning `NULL`. It is assumed that the program has enough memory available
+> to run. If an allocation fails, behavior is undefined.
+
 ## Data structures
 
 - `hashtable_t` — Decently fast open-addressing, linear-probing implementation.
