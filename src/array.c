@@ -17,6 +17,17 @@ array_t *array_new_full(array_init_t init) {
   return array;
 }
 
+array_t *array_filter(array_t *self, array_filter_func *fn) {
+  for (size_t i = self->length; i > 0;) {
+    --i;
+    void *item = (char *)self->data + (i)*self->item_size;
+    if (!fn(item)) {
+      array_delete(self, i);
+    }
+  }
+  return self;
+}
+
 void array_free(array_t *arr) {
   if (!arr)
     return;

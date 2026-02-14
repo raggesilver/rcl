@@ -209,6 +209,76 @@ static void array_test_map2(void) {
   array_free(_res);
 }
 
+bool _string_matches_prefix(const void *ptr) {
+  const char *str = *((const char **)ptr);
+  return strncmp(str, "prefix ", 7) == 0;
+}
+
+static void array_test_filter(void) {
+  array_t *arr = array_new(char *);
+
+  array_push(arr, "prefix foo");
+  array_push(arr, "no match");
+  array_push(arr, "prefix bar");
+
+  array_filter(arr, &_string_matches_prefix);
+
+  ARRAY_OF(char *) *_arr = (void *)arr;
+  TEST_ASSERT_EQUAL_size_t(2, _arr->length);
+  TEST_ASSERT_EQUAL_STRING("prefix foo", _arr->data[0]);
+  TEST_ASSERT_EQUAL_STRING("prefix bar", _arr->data[1]);
+
+  array_destroy(&arr);
+}
+
+bool _filter_always_true(const void *_) { return true; }
+
+int copy_int(int el) { return el; }
+
+static void array_test_filter_copy(void) {
+  array_t *arr = array_new(int);
+
+  array_push(arr, 20);
+  array_push(arr, 200);
+  array_push(arr, 2000);
+  array_push(arr, 20000);
+
+  array_t *copy = array_filter_copy(arr, int, _filter_always_true, copy_int);
+
+  ARRAY_OF(int) *_copy = (void *)copy;
+  TEST_ASSERT_EQUAL_size_t(arr->length, _copy->length);
+  for (size_t i = 0; i < arr->length; i++) {
+    TEST_ASSERT_EQUAL(((int *)arr->data)[i], _copy->data[i]);
+  }
+  TEST_ASSERT_EQUAL_PTR(arr->free_func, _copy->free_func);
+
+  array_destroy(&arr);
+  array_destroy(&copy);
+}
+
+void *copy_str_ptr(void *ptr) { return ptr; }
+
+static void array_test_filter_copy2(void) {
+  array_t *arr = array_new(char *, .free_func = &free);
+
+  array_push(arr, strdup("keep me"));
+  array_push(arr, strdup("don't discard me"));
+  array_push(arr, strdup("also keep me"));
+
+  array_t *copy = array_filter_copy(arr, char *, _filter_always_true, strdup);
+
+  ARRAY_OF(char *) *_copy = (void *)copy;
+  TEST_ASSERT_EQUAL_size_t(arr->length, _copy->length);
+  TEST_ASSERT_EQUAL_PTR(arr->free_func, _copy->free_func);
+
+  for (size_t i = 0; i < arr->length; i++) {
+    TEST_ASSERT_EQUAL_STRING(((char **)arr->data)[i], _copy->data[i]);
+  }
+
+  array_destroy(&arr);
+  array_destroy(&copy);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -222,6 +292,9 @@ int main(void) {
   RUN_TEST(array_deletes);
   RUN_TEST(array_test_map);
   RUN_TEST(array_test_map2);
+  RUN_TEST(array_test_filter);
+  RUN_TEST(array_test_filter_copy);
+  RUN_TEST(array_test_filter_copy2);
 
   return UNITY_END();
 }

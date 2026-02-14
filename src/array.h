@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define ARRAY_DEFAULT_CAPACITY 32
 
@@ -27,6 +28,15 @@ typedef void(array_free_func)(void *ptr);
  * is greater than `b`, and 0 if `a` is equal to `b`.
  */
 typedef int(array_compare_func)(const void *a, const void *b);
+
+/**
+ * A function that filters elements of an array. This function should return
+ * true if the element should be kept, or false if it should be removed.
+ *
+ * @param a a pointer to the element to filter.
+ * @return true if the element should be kept, false otherwise.
+ */
+typedef bool(array_filter_func)(const void *a);
 
 typedef struct s_array {
   void *data;
@@ -118,6 +128,49 @@ array_t *array_new_full(array_init_t init);
       __res_arr->data[i] = func(__arr->data[i]);                               \
     }                                                                          \
     __res->length = __arr->length;                                             \
+    __res;                                                                     \
+  })
+
+/**
+ * Filter elements in-place, removing those not passing the filter.
+ *
+ * This function calls `array_delete(self, index_to_remove)` internally, meaning
+ * removed element will be free'd if you set a free function for the array.
+ *
+ * @param self the array to filter.
+ * @param fn the filter function.
+ * @return the filtered array.
+ */
+array_t *array_filter(array_t *self, array_filter_func *fn);
+
+/**
+ * Create a new array by copying elements that pass a filter function.
+ *
+ * The copy function receives each element by value and should return a copied
+ * value. For pointer types (e.g. `char *`), this would be a function like
+ * `strdup`. For value types, this can be an identity function.
+ *
+ * The new array inherits the source array's free_func.
+ *
+ * @param arr the source array.
+ * @param type the type of elements in the array.
+ * @param filter_fn a filter function (receives pointer to element).
+ * @param copy_fn a copy function (receives element by value, returns copy).
+ * @returns a new filtered array.
+ */
+#define array_filter_copy(arr, type, filter_fn, copy_fn)                       \
+  ({                                                                           \
+    ARRAY_OF(type) *__arr = (void *)(arr);                                     \
+    array_t *__res = array_new_full(                                           \
+        (array_init_t){.capacity = __arr->length ?: ARRAY_DEFAULT_CAPACITY,    \
+                       .item_size = sizeof(type),                              \
+                       .free_func = ((array_t *)__arr)->free_func});           \
+    ARRAY_OF(type) *__res_arr = (void *)__res;                                 \
+    for (size_t i = 0; i < __arr->length; i++) {                               \
+      if (filter_fn(&__arr->data[i])) {                                        \
+        __res_arr->data[__res->length++] = copy_fn(__arr->data[i]);            \
+      }                                                                        \
+    }                                                                          \
     __res;                                                                     \
   })
 
