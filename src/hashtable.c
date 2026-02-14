@@ -1,4 +1,5 @@
 #include "hashtable.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,10 +15,6 @@ const size_t _table_sizes_count =
 
 #ifndef HASHTABLE_DEFAULT_CAPACITY
 #define HASHTABLE_DEFAULT_CAPACITY 769
-#endif
-
-#ifndef HASHTABLE_TOMBSTONE_MARKER
-#define HASHTABLE_TOMBSTONE_MARKER ((void *)-1)
 #endif
 
 // FNV-1a hash function
@@ -49,13 +46,12 @@ static size_t get_next_table_size(const size_t current_size) {
   return current_size * 2;
 }
 
-static size_t hashtable_hash(hashtable_t *self, const char *key,
-                             bool inserting) {
+static size_t hashtable_hash(hashtable_t *self, const char *key) {
   size_t index = self->hash_func(key) % self->capacity;
   bool found_tombstone = false;
   size_t first_tombstone = 0;
 
-  while (true) {
+  for (size_t i = 0; i < self->capacity; i++) {
     if (self->items[index].key == NULL)
       break;
     if (self->items[index].key == HASHTABLE_TOMBSTONE_MARKER) {
@@ -69,7 +65,7 @@ static size_t hashtable_hash(hashtable_t *self, const char *key,
     index = (index + 1) % self->capacity;
   }
 
-  return (inserting && found_tombstone) ? first_tombstone : index;
+  return found_tombstone ? first_tombstone : index;
 }
 
 /**
@@ -84,7 +80,7 @@ static void hashtable_grow(hashtable_t *self) {
     if (is_item_empty(&self->items[i])) {
       continue;
     }
-    size_t new_index = hashtable_hash(tmp_table, self->items[i].key, true);
+    size_t new_index = hashtable_hash(tmp_table, self->items[i].key);
     tmp_table->items[new_index] = self->items[i];
   }
 
@@ -103,6 +99,7 @@ hashtable_t *hashtable_new(void) {
 }
 
 hashtable_t *hashtable_new_with_capacity(size_t initial_capacity) {
+  assert(initial_capacity > 0);
   hashtable_t *self = malloc(sizeof(*self));
 
   *self = (hashtable_t){
@@ -126,23 +123,23 @@ hashtable_set_free_func(hashtable_t *self, hashtable_free_func_t func)
 // table
 
 bool hashtable_exists(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key, false);
+  size_t index = hashtable_hash(self, key);
   return !is_item_empty(&self->items[index]);
 }
 
 void *hashtable_get(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key, false);
+  size_t index = hashtable_hash(self, key);
   return self->items[index].value;
 }
 
 void hashtable_set(hashtable_t *self, const char *key, void *value) {
-  size_t index = hashtable_hash(self, key, true);
+  size_t index = hashtable_hash(self, key);
   item_t *item = &self->items[index];
 
   // Set a new item
   if (is_item_empty(item)) {
     // Grow the table if it's more or precisely 70% full
-    if ((self->length + 1.f) / self->capacity >= 0.7f) {
+    if ((self->length + 1) * 10 >= self->capacity * 7) {
       // Grow the table
       hashtable_grow(self);
       hashtable_set(self, key, value);
@@ -163,7 +160,7 @@ void hashtable_set(hashtable_t *self, const char *key, void *value) {
 }
 
 bool hashtable_remove(hashtable_t *self, const char *key, void **value) {
-  size_t index = hashtable_hash(self, key, false);
+  size_t index = hashtable_hash(self, key);
   item_t *item = &self->items[index];
 
   if (is_item_empty(item)) {
@@ -203,7 +200,7 @@ void hashtable_free(hashtable_t *self) {
 }
 
 bool hashtable_delete(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key, false);
+  size_t index = hashtable_hash(self, key);
   item_t *item = &self->items[index];
 
   if (is_item_empty(item)) {

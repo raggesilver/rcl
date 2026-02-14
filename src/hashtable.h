@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#ifndef HASHTABLE_TOMBSTONE_MARKER
+#define HASHTABLE_TOMBSTONE_MARKER ((void *)-1)
+#endif
+
 /**
  * A function used to free values in the hashtable. This function will be called
  * on every value in the hashtable when the hashtable is freed.
@@ -134,7 +138,8 @@ bool hashtable_delete(hashtable_t *self, const char *key);
  */
 #define hashtable_foreach(table, fn)                                           \
   for (size_t i = 0; i < table->capacity; i++) {                               \
-    if (table->items[i].key == NULL) {                                         \
+    if (table->items[i].key == NULL ||                                         \
+        table->items[i].key == HASHTABLE_TOMBSTONE_MARKER) {                   \
       continue;                                                                \
     }                                                                          \
     {                                                                          \

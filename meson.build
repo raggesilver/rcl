@@ -1,7 +1,7 @@
 project(
   'rcl',
   'c',
-  version: '0.2',
+  version: '0.3',
   default_options: [
     'warning_level=3',
     'c_std=c99',
@@ -55,7 +55,7 @@ pkg_mod.generate(
   description: 'Raggesilver\'s C Library.',
   subdirs: 'rcl',
   libraries: shlib,
-  version: '0.1',
+  version: meson.project_version(),
 )
 
 if get_option('tests')

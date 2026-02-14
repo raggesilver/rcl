@@ -292,6 +292,53 @@ static void test_hashtable_multiple_delete_reinsert(void) {
   hashtable_free(table);
 }
 
+static void test_hashtable_tombstone_saturation(void) {
+  // With capacity 4, we can have at most 2 active items before grow triggers.
+  // Fill slots with tombstones so no NULLs remain, then query a missing key.
+  // Before the for-loop fix, this would infinite loop.
+  hashtable_t *table = hashtable_new_with_capacity(4);
+
+  hashtable_set(table, "a", "1");
+  hashtable_set(table, "b", "2");
+
+  hashtable_delete(table, "a");
+  hashtable_delete(table, "b");
+  // 2 tombstones, 2 NULLs, length=0
+
+  hashtable_set(table, "c", "3");
+  hashtable_set(table, "d", "4");
+  // Worst case: c and d land in the NULL slots, leaving 2 tombstones + 2 active
+
+  TEST_ASSERT_FALSE(hashtable_exists(table, "nonexistent"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "c"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "d"));
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_foreach_skips_tombstones(void) {
+  hashtable_t *table = hashtable_new();
+
+  hashtable_set(table, "a", "1");
+  hashtable_set(table, "b", "2");
+  hashtable_set(table, "c", "3");
+
+  hashtable_delete(table, "b");
+
+  int count = 0;
+  hashtable_foreach(table, {
+    // key should never be a tombstone or NULL
+    TEST_ASSERT_NOT_NULL(key);
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(
+        HASHTABLE_TOMBSTONE_MARKER, key,
+        "foreach should skip tombstones");
+    count++;
+  });
+  TEST_ASSERT_EQUAL(2, count);
+
+  hashtable_free(table);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -311,6 +358,8 @@ int main(void) {
   RUN_TEST(test_hashtable_remove_after_delete);
   RUN_TEST(test_hashtable_delete_calls_free_func);
   RUN_TEST(test_hashtable_multiple_delete_reinsert);
+  RUN_TEST(test_hashtable_tombstone_saturation);
+  RUN_TEST(test_hashtable_foreach_skips_tombstones);
 
   return UNITY_END();
 }
