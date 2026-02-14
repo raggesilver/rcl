@@ -16,10 +16,17 @@ const size_t _table_sizes_count =
 #define HASHTABLE_DEFAULT_CAPACITY 769
 #endif
 
+#ifndef HASHTABLE_TOMBSTONE_MARKER
+#define HASHTABLE_TOMBSTONE_MARKER ((void *)-1)
+#endif
+
 // FNV-1a hash function
 
 #define FNV_PRIME_32 16777619
 #define FNV_OFFSET_32 2166136261
+
+#define is_item_empty(item)                                                    \
+  ((item)->key == NULL || (item)->key == HASHTABLE_TOMBSTONE_MARKER)
 
 __attribute__((always_inline)) static inline size_t fnv1a(const char *key) {
   const unsigned char *d = (const unsigned char *)key;
@@ -42,17 +49,27 @@ static size_t get_next_table_size(const size_t current_size) {
   return current_size * 2;
 }
 
-static size_t hashtable_hash(hashtable_t *self, const char *key) {
+static size_t hashtable_hash(hashtable_t *self, const char *key,
+                             bool inserting) {
   size_t index = self->hash_func(key) % self->capacity;
-  size_t i = 0;
+  bool found_tombstone = false;
+  size_t first_tombstone = 0;
 
-  while (self->items[index].key != NULL &&
-         strcmp(self->items[index].key, key) != 0) {
-    i++;
-    index = (index + i * i) % self->capacity;
+  while (true) {
+    if (self->items[index].key == NULL)
+      break;
+    if (self->items[index].key == HASHTABLE_TOMBSTONE_MARKER) {
+      if (!found_tombstone) {
+        found_tombstone = true;
+        first_tombstone = index;
+      }
+    } else if (strcmp(self->items[index].key, key) == 0) {
+      return index;
+    }
+    index = (index + 1) % self->capacity;
   }
 
-  return index;
+  return (inserting && found_tombstone) ? first_tombstone : index;
 }
 
 /**
@@ -64,10 +81,10 @@ static void hashtable_grow(hashtable_t *self) {
   hashtable_t *tmp_table = hashtable_new_with_capacity(new_capacity);
 
   for (size_t i = 0; i < self->capacity; i++) {
-    if (self->items[i].key == NULL) {
+    if (is_item_empty(&self->items[i])) {
       continue;
     }
-    size_t new_index = hashtable_hash(tmp_table, self->items[i].key);
+    size_t new_index = hashtable_hash(tmp_table, self->items[i].key, true);
     tmp_table->items[new_index] = self->items[i];
   }
 
@@ -109,23 +126,23 @@ hashtable_set_free_func(hashtable_t *self, hashtable_free_func_t func)
 // table
 
 bool hashtable_exists(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key);
-  return self->items[index].key != NULL;
+  size_t index = hashtable_hash(self, key, false);
+  return !is_item_empty(&self->items[index]);
 }
 
 void *hashtable_get(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key);
+  size_t index = hashtable_hash(self, key, false);
   return self->items[index].value;
 }
 
 void hashtable_set(hashtable_t *self, const char *key, void *value) {
-  size_t index = hashtable_hash(self, key);
+  size_t index = hashtable_hash(self, key, true);
   item_t *item = &self->items[index];
 
   // Set a new item
-  if (item->key == NULL) {
-    // Grow the table if it's more than 70% full
-    if ((float)self->length / self->capacity >= 0.7f) {
+  if (is_item_empty(item)) {
+    // Grow the table if it's more or precisely 70% full
+    if ((self->length + 1.f) / self->capacity >= 0.7f) {
       // Grow the table
       hashtable_grow(self);
       hashtable_set(self, key, value);
@@ -146,10 +163,10 @@ void hashtable_set(hashtable_t *self, const char *key, void *value) {
 }
 
 bool hashtable_remove(hashtable_t *self, const char *key, void **value) {
-  size_t index = hashtable_hash(self, key);
+  size_t index = hashtable_hash(self, key, false);
   item_t *item = &self->items[index];
 
-  if (item->key == NULL) {
+  if (is_item_empty(item)) {
     if (value) {
       *value = NULL;
     }
@@ -160,7 +177,7 @@ bool hashtable_remove(hashtable_t *self, const char *key, void **value) {
     *value = item->value;
   }
   free(item->key);
-  item->key = NULL;
+  item->key = HASHTABLE_TOMBSTONE_MARKER;
   item->value = NULL;
   self->length--;
   return true;
@@ -172,7 +189,7 @@ void hashtable_free(hashtable_t *self) {
 
   if (self->items) {
     for (size_t i = 0; i < self->capacity; i++) {
-      if (self->items[i].key != NULL) {
+      if (!is_item_empty(&self->items[i])) {
         if (self->free_func) {
           self->free_func(self->items[i].value);
         }
@@ -186,10 +203,10 @@ void hashtable_free(hashtable_t *self) {
 }
 
 bool hashtable_delete(hashtable_t *self, const char *key) {
-  size_t index = hashtable_hash(self, key);
+  size_t index = hashtable_hash(self, key, false);
   item_t *item = &self->items[index];
 
-  if (item->key == NULL) {
+  if (is_item_empty(item)) {
     return false;
   }
 
@@ -197,7 +214,7 @@ bool hashtable_delete(hashtable_t *self, const char *key) {
     self->free_func(item->value);
   }
   free(item->key);
-  item->key = NULL;
+  item->key = HASHTABLE_TOMBSTONE_MARKER;
   item->value = NULL;
   self->length--;
   return true;

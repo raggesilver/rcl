@@ -1,6 +1,7 @@
 #include "hashtable.h"
 #include "unity.h"
 #include <stdbool.h>
+#include <stdlib.h>
 
 // Force loads of collisions and resizes
 // #define HASHTABLE_DEFAULT_CAPACITY 2
@@ -138,6 +139,159 @@ static void test_hashtable_dump(void) {
   }
 }
 
+static void test_hashtable_deletion_preserves_probe_chain(void) {
+  hashtable_t *table = hashtable_new_with_capacity(8);
+
+  // Insert items that will likely collide
+  hashtable_set(table, "key_a", "value_a");
+  hashtable_set(table, "key_b", "value_b");
+  hashtable_set(table, "key_c", "value_c");
+  hashtable_set(table, "key_d", "value_d");
+
+  // Delete some items to create tombstones
+  hashtable_delete(table, "key_b");
+
+  // Items after the deleted one should still be findable
+  TEST_ASSERT_TRUE(hashtable_exists(table, "key_c"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "key_d"));
+  TEST_ASSERT_EQUAL_STRING("value_c", hashtable_get(table, "key_c"));
+  TEST_ASSERT_EQUAL_STRING("value_d", hashtable_get(table, "key_d"));
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_tombstone_reuse(void) {
+  hashtable_t *table = hashtable_new();
+
+  hashtable_set(table, "reuse", "first");
+  TEST_ASSERT_EQUAL(1, table->length);
+
+  hashtable_delete(table, "reuse");
+  TEST_ASSERT_EQUAL(0, table->length);
+  TEST_ASSERT_FALSE(hashtable_exists(table, "reuse"));
+
+  hashtable_set(table, "reuse", "second");
+  TEST_ASSERT_EQUAL(1, table->length);
+  TEST_ASSERT_TRUE(hashtable_exists(table, "reuse"));
+  TEST_ASSERT_EQUAL_STRING("second", hashtable_get(table, "reuse"));
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_update_existing_key(void) {
+  hashtable_t *table = hashtable_new();
+
+  hashtable_set(table, "key", "value1");
+  TEST_ASSERT_EQUAL(1, table->length);
+
+  hashtable_set(table, "key", "value2");
+  TEST_ASSERT_EQUAL(1, table->length);
+  TEST_ASSERT_EQUAL_STRING("value2", hashtable_get(table, "key"));
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_resize_with_tombstones(void) {
+  hashtable_t *table = hashtable_new_with_capacity(4);
+
+  hashtable_set(table, "a", "1");
+  hashtable_set(table, "b", "2");
+  hashtable_set(table, "c", "3");
+
+  hashtable_delete(table, "b");
+  TEST_ASSERT_EQUAL(2, table->length);
+
+  // Force resize by adding more items
+  hashtable_set(table, "d", "4");
+  hashtable_set(table, "e", "5");
+
+  // After resize, all items should still be accessible
+  TEST_ASSERT_TRUE(hashtable_exists(table, "a"));
+  TEST_ASSERT_FALSE(hashtable_exists(table, "b"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "c"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "d"));
+  TEST_ASSERT_TRUE(hashtable_exists(table, "e"));
+  TEST_ASSERT_EQUAL(4, table->length);
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_delete_nonexistent(void) {
+  hashtable_t *table = hashtable_new();
+
+  bool deleted = hashtable_delete(table, "nonexistent");
+  TEST_ASSERT_FALSE(deleted);
+  TEST_ASSERT_EQUAL(0, table->length);
+
+  hashtable_free(table);
+}
+
+static void test_hashtable_remove_after_delete(void) {
+  hashtable_t *table = hashtable_new();
+
+  hashtable_set(table, "key1", "value1");
+  hashtable_set(table, "key2", "value2");
+
+  hashtable_delete(table, "key1");
+
+  void *removed;
+  bool success = hashtable_remove(table, "key2", &removed);
+  TEST_ASSERT_TRUE(success);
+  TEST_ASSERT_EQUAL_STRING("value2", (char *)removed);
+  TEST_ASSERT_FALSE(hashtable_exists(table, "key2"));
+
+  hashtable_free(table);
+}
+
+static int free_count = 0;
+
+static void counting_free(void *ptr) {
+  free_count++;
+  free(ptr);
+}
+
+static void test_hashtable_delete_calls_free_func(void) {
+  hashtable_t *table = hashtable_new();
+  hashtable_set_free_func(table, counting_free);
+
+  free_count = 0;
+
+  int *val1 = malloc(sizeof(int));
+  int *val2 = malloc(sizeof(int));
+  *val1 = 42;
+  *val2 = 99;
+
+  hashtable_set(table, "key1", val1);
+  hashtable_set(table, "key2", val2);
+
+  hashtable_delete(table, "key1");
+  TEST_ASSERT_EQUAL(1, free_count);
+
+  hashtable_free(table);
+  TEST_ASSERT_EQUAL(2, free_count);
+}
+
+static void test_hashtable_multiple_delete_reinsert(void) {
+  hashtable_t *table = hashtable_new_with_capacity(8);
+
+  hashtable_set(table, "x", "1");
+  hashtable_set(table, "y", "2");
+  hashtable_set(table, "z", "3");
+
+  hashtable_delete(table, "x");
+  hashtable_delete(table, "y");
+
+  hashtable_set(table, "x", "4");
+  hashtable_set(table, "y", "5");
+
+  TEST_ASSERT_EQUAL(3, table->length);
+  TEST_ASSERT_EQUAL_STRING("4", hashtable_get(table, "x"));
+  TEST_ASSERT_EQUAL_STRING("5", hashtable_get(table, "y"));
+  TEST_ASSERT_EQUAL_STRING("3", hashtable_get(table, "z"));
+
+  hashtable_free(table);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -147,6 +301,16 @@ int main(void) {
   RUN_TEST(test_hashtable_foreach);
   RUN_TEST(test_hashtable_exists);
   RUN_TEST(test_hashtable_dump);
+
+  // Tombstone and probe chain tests
+  RUN_TEST(test_hashtable_deletion_preserves_probe_chain);
+  RUN_TEST(test_hashtable_tombstone_reuse);
+  RUN_TEST(test_hashtable_update_existing_key);
+  RUN_TEST(test_hashtable_resize_with_tombstones);
+  RUN_TEST(test_hashtable_delete_nonexistent);
+  RUN_TEST(test_hashtable_remove_after_delete);
+  RUN_TEST(test_hashtable_delete_calls_free_func);
+  RUN_TEST(test_hashtable_multiple_delete_reinsert);
 
   return UNITY_END();
 }

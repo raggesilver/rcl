@@ -89,6 +89,12 @@ void *hashtable_get(hashtable_t *self, const char *key);
 /**
  * Set a value in the hashtable.
  *
+ * WARNING: if you call set a value for a key that already exists in the
+ * hashtable, the old value will be freed if a free function has been set for
+ * this table. If you want to avoid this behavior, you can use
+ * `hashtable_exists` to check if the key already exists before setting the
+ * value.
+ *
  * @param self the hashtable to set the value in
  * @param key the key to set the value for
  * @param value the value to set
