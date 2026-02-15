@@ -1,5 +1,5 @@
 
-#include "array.h"
+#include <rcl/array.h>
 #include "unity.h"
 #include <stdbool.h>
 #include <stdio.h>
