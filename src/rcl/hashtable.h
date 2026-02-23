@@ -63,6 +63,14 @@ hashtable_t *hashtable_new_with_capacity(size_t initial_capacity);
 void hashtable_free(hashtable_t *self);
 
 /**
+ * Destroy the hashtable and set the pointer to NULL. This is a convenience
+ * function that calls `hashtable_free` and then sets the pointer to NULL.
+ *
+ * @param self a pointer to the hashtable to destroy
+ */
+void hashtable_destroy(hashtable_t **self);
+
+/**
  * Set the free function for the hashtable. This function will be called on
  * every value in the hashtable when the hashtable is freed.
  *

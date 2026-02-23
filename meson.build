@@ -17,6 +17,7 @@ lib_args = ['-DBUILDING_RCL']
 sources = files(
   './src/array.c',
   './src/hashtable.c',
+  './src/json.c',
   './src/string.c',
 )
 
@@ -79,4 +80,11 @@ if get_option('tests')
     dependencies: [rcl_dep, unity_dependency],
   )
   test('string', rcl_string_test_exe)
+
+  rcl_json_test_exe = executable(
+    'json',
+    'src' / 'json_test.c',
+    dependencies: [rcl_dep, unity_dependency],
+  )
+  test('json', rcl_json_test_exe)
 endif

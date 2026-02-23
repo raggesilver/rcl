@@ -1,5 +1,5 @@
-#include <rcl/hashtable.h>
 #include <assert.h>
+#include <rcl/hashtable.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -197,6 +197,13 @@ void hashtable_free(hashtable_t *self) {
   }
 
   free(self);
+}
+
+void hashtable_destroy(hashtable_t **self) {
+  if (self) {
+    hashtable_free(*self);
+    *self = NULL;
+  }
 }
 
 bool hashtable_delete(hashtable_t *self, const char *key) {
