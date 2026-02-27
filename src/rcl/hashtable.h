@@ -114,6 +114,21 @@ void *hashtable_get(hashtable_t *self, const char *key);
 void hashtable_set(hashtable_t *self, const char *key, void *value);
 
 /**
+ * Set a value in the hashtable, stealing the key. This function is the same as
+ * `hashtable_set`, but it takes ownership of the key pointer instead of copying
+ * it. This means that the caller is no longer responsible for freeing the key,
+ * and doing so will result in undefined behavior. This can be useful if you
+ * want to avoid the overhead of copying the key string, but it also means that
+ * you need to be careful to not free the key after calling this function.
+ *
+ * @param self the hashtable to set the value in
+ * @param key the key to set the value for. This pointer will be stolen by the
+ * hashtable, so the caller should not free it after calling this function.
+ * @param value the value to set
+ */
+void hashtable_set_steal(hashtable_t *self, char *key, void *value);
+
+/**
  * Remove a value from the hashtable. Note that this function will not free the
  * value that was removed. If you want to free the value, you must do so
  * manually.

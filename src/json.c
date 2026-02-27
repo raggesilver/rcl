@@ -144,6 +144,14 @@ char *decode_json_string(const char *start, size_t length,
   // Skip opening and closing quotes
   const char *src = start + 1;
   const char *end = start + length - 1;
+  char *ptr;
+
+  if (!(ptr = memchr(src, '\\', end - src))) {
+    // Fast path: no escapes, just copy the substring
+    char *result = strndup(src, end - src);
+    set_out_value(decoded_length, end - src);
+    return result;
+  }
 
   // Allocate worst case (same length minus quotes), will be smaller if escapes
   char *result = malloc(length - 1);
@@ -247,8 +255,9 @@ bool _json_lex(const char *src, array_t out *tokens, json_error_t out *error) {
   if (error)
     *error = NULL;
 
+  const size_t src_length = strlen(src);
   const char *ptr = src;
-  array_t *arr = array_new(json_token_t);
+  array_t *arr = array_new(json_token_t, .capacity = (src_length / 4 + 1));
   json_error_t *_error = NULL;
 
   while (*ptr) {
@@ -371,7 +380,7 @@ json_value_t *json_parse_object(const array_t *_tokens, size_t *cursor,
                                 json_error_t out *error) {
   set_out_value(error, NULL);
   ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  hashtable_t *object = hashtable_new();
+  hashtable_t *object = hashtable_new_with_capacity(13);
   json_error_t *_error = NULL;
 
   object->free_func = (hashtable_free_func_t)json_value_free;
@@ -410,9 +419,8 @@ json_value_t *json_parse_object(const array_t *_tokens, size_t *cursor,
     if (!value)
       goto return_error;
 
-    char *key = decode_json_string(token->start, token->length, NULL);
-    hashtable_set(object, key, value);
-    free(key);
+    hashtable_set_steal(
+        object, decode_json_string(token->start, token->length, NULL), value);
 
     // We allow trailing commas in objects, so we check for a comma after
     // parsing a value.
@@ -499,10 +507,10 @@ json_value_t *json_parse_number(const array_t *_tokens, size_t *cursor,
   json_token_t *token = &tokens->data[*cursor];
   (*cursor)++;
 
-  // strtod handles all valid JSON number formats (integer, decimal, exponent)
-  char *buf = strndup(token->start, token->length);
-  double value = strtod(buf, NULL);
-  free(buf);
+  // strtod handles all valid JSON number formats (integer, decimal, exponent).
+  // Since it stops parsing at the first invalid character, we can ignore the
+  // length of the token here, trusting that the lexer has already validated it.
+  double value = strtod(token->start, NULL);
 
   json_value_t *self = malloc(sizeof(*self));
   *self = (json_value_t){

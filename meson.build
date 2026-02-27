@@ -56,6 +56,20 @@ pkg_mod.generate(
   version: meson.project_version(),
 )
 
+if get_option('benchmarks')
+  cjson_subproject = subproject('cjson')
+  cjson_dep = cjson_subproject.get_variable('libcjson_dep')
+
+  json_bench_exe = executable(
+    'json_bench',
+    'src' / 'json_bench.c',
+    include_directories: incs,
+    dependencies: [rcl_dep, cjson_dep],
+  )
+
+  benchmark('json_bench', json_bench_exe)
+endif
+
 if get_option('tests')
   unity_subproject = subproject('unity')
   unity_dependency = unity_subproject.get_variable('unity_dep')

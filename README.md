@@ -3,6 +3,7 @@
 <h1>RCL — Raggesilver's C Library</h1>
 
 <img src="https://github.com/raggesilver/rcl/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+<a href="https://github.com/raggesilver/rcl/actions/workflows/benchmark.yml"><img src="https://github.com/raggesilver/rcl/actions/workflows/benchmark.yml/badge.svg" alt="Benchmark" /></a>
 
 </div>
 

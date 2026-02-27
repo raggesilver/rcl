@@ -132,7 +132,7 @@ void *hashtable_get(hashtable_t *self, const char *key) {
   return self->items[index].value;
 }
 
-void hashtable_set(hashtable_t *self, const char *key, void *value) {
+void hashtable_set_steal(hashtable_t *self, char *key, void *value) {
   size_t index = hashtable_hash(self, key);
   item_t *item = &self->items[index];
 
@@ -142,21 +142,35 @@ void hashtable_set(hashtable_t *self, const char *key, void *value) {
     if ((self->length + 1) * 10 >= self->capacity * 7) {
       // Grow the table
       hashtable_grow(self);
-      hashtable_set(self, key, value);
+      hashtable_set_steal(self, key, value);
       return;
     }
     self->length++;
 
     item->value = value;
-    item->key = strdup(key);
+    item->key = key; // Just take the key
   }
   // Replace an existing item
   else {
+    // Here things get complicated. If the key is literally the same existing
+    // pointer, we should do nothing. Otherwise, we should free the existing key
+    // and take the new one. This allows the user to reuse the same key pointer
+    // if they want to update the value without changing the key, but also
+    // allows them to replace the key if they want to.
+    if (item->key != key) {
+      free(item->key);
+      item->key = key;
+    }
+
     if (item->value && self->free_func) {
       self->free_func(item->value);
     }
     item->value = value;
   }
+}
+
+void hashtable_set(hashtable_t *self, const char *key, void *value) {
+  return hashtable_set_steal(self, strdup(key), value);
 }
 
 bool hashtable_remove(hashtable_t *self, const char *key, void **value) {
