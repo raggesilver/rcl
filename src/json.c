@@ -7,6 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef DEFAULT_JSON_ARRAY_CAPACITY
+#define DEFAULT_JSON_ARRAY_CAPACITY 4
+#endif
+
+#ifndef DEFAULT_JSON_OBJECT_CAPACITY
+#define DEFAULT_JSON_OBJECT_CAPACITY 13
+#endif
+
 // Locale-independent strtod. JSON mandates '.' as the decimal separator, but
 // strtod respects the current locale which may use ',' instead. We use the
 // platform-specific locale-aware variant with an explicit "C" locale to avoid
@@ -373,7 +381,8 @@ return_error:
 json_value_t *json_parse_object(const char *src, const char **ptr,
                                 json_error_t out *error) {
   set_out_value(error, NULL);
-  hashtable_t *object = hashtable_new_with_capacity(13);
+  hashtable_t *object =
+      hashtable_new_with_capacity(DEFAULT_JSON_OBJECT_CAPACITY);
   json_error_t *_error = NULL;
 
   object->free_func = (hashtable_free_func_t)json_value_free;
@@ -495,7 +504,8 @@ json_value_t *json_parse_number(__attribute__((unused)) const char *src,
 json_value_t *json_parse_array(const char *src, const char **ptr,
                                json_error_t out *error) {
   set_out_value(error, NULL);
-  array_t *array = array_new(json_value_t *);
+  array_t *array =
+      array_new(json_value_t *, .capacity = DEFAULT_JSON_ARRAY_CAPACITY);
   json_error_t *_error = NULL;
 
   array->free_func = (array_free_func *)json_value_free;
