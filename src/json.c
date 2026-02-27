@@ -7,11 +7,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define check_out_of_bounds_token(arr, index_ptr, err, label)                  \
-  if (*index_ptr >= arr->length) {                                             \
-    err = json_error_new(strdup("Unexpected end of input"), 0);                \
-    goto label;                                                                \
-  }
+// Locale-independent strtod. JSON mandates '.' as the decimal separator, but
+// strtod respects the current locale which may use ',' instead. We use the
+// platform-specific locale-aware variant with an explicit "C" locale to avoid
+// this.
+#ifdef _WIN32
+#include <locale.h>
+static double json_strtod(const char *str, char **endptr) {
+  static _locale_t c_locale = NULL;
+  if (!c_locale)
+    c_locale = _create_locale(LC_NUMERIC, "C");
+  return _strtod_l(str, endptr, c_locale);
+}
+#else
+#include <locale.h>
+#if defined(__APPLE__)
+#include <xlocale.h>
+#endif
+static double json_strtod(const char *str, char **endptr) {
+  static locale_t c_locale = (locale_t)0;
+  if (!c_locale)
+    c_locale = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0);
+  return strtod_l(str, endptr, c_locale);
+}
+#endif
 
 typedef enum {
   JSON_TOKEN_LBRACE,
@@ -26,28 +45,19 @@ typedef enum {
   JSON_TOKEN_FALSE,
   JSON_TOKEN_NULL,
   JSON_TOKEN_INVALID = -1,
+  JSON_TOKEN_END = -2,
 } json_token_type_e;
 
-typedef struct json_token_s {
-  json_token_type_e type;
-  const char *start;
-  size_t length;
-} json_token_t;
-
-json_value_t *json_parse_token(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_token(const char *src, const char **ptr,
                                json_error_t out *error);
-json_value_t *json_parse_string(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_string(const char *src, const char **ptr,
                                 json_error_t out *error);
-json_value_t *json_parse_number(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_number(const char *src, const char **ptr,
                                 json_error_t out *error);
-json_value_t *json_parse_bool(const array_t *_tokens, size_t *cursor,
-                              json_error_t out *error);
-json_value_t *json_parse_array(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_array(const char *src, const char **ptr,
                                json_error_t out *error);
-json_value_t *json_parse_object(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_object(const char *src, const char **ptr,
                                 json_error_t out *error);
-json_value_t *json_parse_null(const array_t *_tokens, size_t *cursor,
-                              json_error_t out *error);
 
 json_token_type_e _get_token_type(const char *ptr) {
   switch (*ptr) {
@@ -249,121 +259,105 @@ const char *_get_number_end(const char *start) {
   return ptr;
 }
 
-bool _json_lex(const char *src, array_t out *tokens, json_error_t out *error) {
-  if (tokens)
-    *tokens = NULL;
-  if (error)
-    *error = NULL;
-
-  const size_t src_length = strlen(src);
-  const char *ptr = src;
-  array_t *arr = array_new(json_token_t, .capacity = (src_length / 4 + 1));
+json_token_type_e _json_lex_get_next_token(const char *src, const char **_ptr,
+                                           json_error_t out *error) {
+  // This function is a lex-parse hybrid. We look at what the next token is and
+  // return its type. We also advance the pointer to the next thing to parse. If
+  // we find anything invalid along the way, we return an error.
+  //
+  // For keywords such as null, true, and false we validate the entire thing and
+  // move the pointer past it. For values, such as numbers we leave the pointer
+  // at the first character and let the parser deal with it. For strings, we
+  // leave the pointer at the opening quote.
+  //
+  // This function skips whitespace only, but returns commas and colons (both of
+  // which move the pointer past themselves).
+  set_out_value(error, NULL);
   json_error_t *_error = NULL;
 
-  while (*ptr) {
-    while (*ptr && isspace(*ptr))
-      ptr++;
-    if (*ptr == '\0')
-      break;
-
-    json_token_type_e token_type = _get_token_type(ptr);
-
-    if (token_type == JSON_TOKEN_INVALID) {
-      _error = json_error_new(strdup("Invalid token"), ptr - src);
-      goto return_error;
-    }
-
-    json_token_t token = {.type = token_type, .start = ptr, .length = 1};
-    switch (token_type) {
-    case JSON_TOKEN_STRING: {
-      const char *end = _get_string_end(ptr + 1);
-      if (!end) {
-        _error = json_error_new(strdup("Unterminated string"), ptr - src);
-        goto return_error;
-      }
-      token.length = end - ptr + 1;
-      break;
-    };
-    case JSON_TOKEN_TRUE:
-      token.length = 4;
-      break;
-    case JSON_TOKEN_FALSE:
-      token.length = 5;
-      break;
-    case JSON_TOKEN_NULL:
-      token.length = 4;
-      break;
-    case JSON_TOKEN_NUMBER: {
-      const char *end = _get_number_end(ptr);
-      if (!end) {
-        _error = json_error_new(strdup("Invalid number"), ptr - src);
-        goto return_error;
-      }
-      token.length = end - ptr;
-      break;
-    };
-    default:
-      break;
-    }
-
-    array_push(arr, token);
-    ptr += token.length;
+  const char *ptr = *_ptr;
+  while (*ptr && isspace(*ptr))
+    ptr++;
+  if (!*ptr) {
+    *_ptr = ptr;
+    return JSON_TOKEN_END;
   }
 
-  if (tokens) {
-    *tokens = arr;
-  } else {
-    array_destroy(&arr);
+  json_token_type_e token_type = _get_token_type(ptr);
+  switch (token_type) {
+  case JSON_TOKEN_INVALID:
+  case JSON_TOKEN_END:
+    _error = json_error_new(strdup("Invalid token"), ptr - src);
+    goto return_error;
+  case JSON_TOKEN_COLON:
+  case JSON_TOKEN_COMMA:
+  case JSON_TOKEN_LBRACE:
+  case JSON_TOKEN_RBRACE:
+  case JSON_TOKEN_LBRACK:
+  case JSON_TOKEN_RBRACK:
+    *_ptr = ptr + 1;
+    return token_type;
+  case JSON_TOKEN_STRING:
+  case JSON_TOKEN_NUMBER:
+    *_ptr = ptr;
+    return token_type;
+  case JSON_TOKEN_FALSE:
+    *_ptr = ptr + 5;
+    return token_type;
+  case JSON_TOKEN_TRUE:
+  case JSON_TOKEN_NULL:
+    *_ptr = ptr + 4;
+    return token_type;
   }
-
-  return true;
 
 return_error:
-  array_destroy(&arr);
-  if (error) {
-    *error = _error;
-  } else {
+  set_out_value(error, _error);
+  if (!error)
     json_error_destroy(&_error);
-  }
-  return false;
+  return JSON_TOKEN_INVALID;
 }
 
-void debug_lexer_tokens(array_t *_tokens) {
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-
-  for (size_t i = 0; i < tokens->length; i++) {
-    json_token_t *token = &tokens->data[i];
-    printf("Token: type=%d, value='%.*s'\n", token->type, (int)token->length,
-           token->start);
-  }
-}
-
-json_value_t *json_parse_token(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_token(const char *src, const char **ptr,
                                json_error_t out *error) {
   set_out_value(error, NULL);
   json_error_t *_error = NULL;
 
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  if (*cursor >= tokens->length) {
-    _error = json_error_new(strdup("Unexpected end of input"), 0);
+  __auto_type token_type = _json_lex_get_next_token(src, ptr, &_error);
+  if (_error)
     goto return_error;
+
+  if (token_type == JSON_TOKEN_END) {
+    // We do not treat end of input as an error here, the caller can decide if
+    // it's unexpected or not. We just return NULL to indicate no more tokens.
+    return NULL;
   }
 
-  json_token_t *token = &tokens->data[*cursor];
-  switch (token->type) {
+  switch (token_type) {
   case JSON_TOKEN_STRING:
-    return json_parse_string(_tokens, cursor, error);
+    return json_parse_string(src, ptr, error);
   case JSON_TOKEN_NUMBER:
-    return json_parse_number(_tokens, cursor, error);
+    return json_parse_number(src, ptr, error);
   case JSON_TOKEN_TRUE:
-  case JSON_TOKEN_FALSE:
-    return json_parse_bool(_tokens, cursor, error);
-  case JSON_TOKEN_NULL:
-    return json_parse_null(_tokens, cursor, error);
+  case JSON_TOKEN_FALSE: {
+    json_value_t *value = malloc(sizeof(*value));
+    *value = (json_value_t){
+        .type = JSON_VALUE_TYPE_BOOL,
+        .value.boolean = token_type == JSON_TOKEN_TRUE,
+    };
+    return value;
+  }
+  case JSON_TOKEN_NULL: {
+    json_value_t *value = malloc(sizeof(*value));
+    *value = (json_value_t){
+        .type = JSON_VALUE_TYPE_NULL,
+        .value = {0},
+    };
+    return value;
+  }
   case JSON_TOKEN_LBRACK:
-    return json_parse_array(_tokens, cursor, error);
+    return json_parse_array(src, ptr, error);
   case JSON_TOKEN_LBRACE:
-    return json_parse_object(_tokens, cursor, error);
+    return json_parse_object(src, ptr, error);
   default:
     _error = json_error_new(strdup("Unexpected token"), 0);
     goto return_error;
@@ -376,58 +370,62 @@ return_error:
   return NULL;
 }
 
-json_value_t *json_parse_object(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_object(const char *src, const char **ptr,
                                 json_error_t out *error) {
   set_out_value(error, NULL);
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
   hashtable_t *object = hashtable_new_with_capacity(13);
   json_error_t *_error = NULL;
 
   object->free_func = (hashtable_free_func_t)json_value_free;
 
-  check_out_of_bounds_token(_tokens, cursor, _error, return_error);
-
-  if (tokens->data[*cursor].type != JSON_TOKEN_LBRACE) {
-    _error = json_error_new(strdup("Expected '{' at start of object"), 0);
-    goto return_error;
-  }
-  (*cursor)++;
-
   while (true) {
-    check_out_of_bounds_token(_tokens, cursor, _error, return_error);
-    json_token_t *token = &tokens->data[*cursor];
-    if (token->type == JSON_TOKEN_RBRACE) {
-      (*cursor)++;
+    __auto_type token_type = _json_lex_get_next_token(src, ptr, &_error);
+    if (_error)
+      goto return_error;
+
+    if (token_type == JSON_TOKEN_RBRACE) {
       break;
     }
 
-    if (token->type != JSON_TOKEN_STRING) {
+    if (token_type == JSON_TOKEN_COMMA) {
+      if (object->length == 0) {
+        _error = json_error_new(strdup("Leading comma in object"), 0);
+        goto return_error;
+      }
+      continue;
+    }
+
+    if (token_type != JSON_TOKEN_STRING) {
       _error = json_error_new(strdup("Expected string key in object"), 0);
       goto return_error;
     }
-    (*cursor)++;
+    const char *end = _get_string_end(*ptr + 1);
+    if (!end) {
+      _error = json_error_new(strdup("Unterminated string in object key"), 0);
+      goto return_error;
+    }
+    size_t key_length = end - *ptr + 1; // This includes both quotes.
+    char *key = decode_json_string(*ptr, key_length, NULL);
+    *ptr += key_length;
 
-    check_out_of_bounds_token(_tokens, cursor, _error, return_error);
-    if (tokens->data[*cursor].type != JSON_TOKEN_COLON) {
+    token_type = _json_lex_get_next_token(src, ptr, &_error);
+    if (token_type != JSON_TOKEN_COLON) {
       _error = json_error_new(strdup("Expected ':' after key in object"), 0);
+      free(key);
       goto return_error;
     }
-    (*cursor)++;
 
-    // This call already advances the cursor, so we don't need to do it here.
-    json_value_t *value = json_parse_token(_tokens, cursor, error);
-    if (!value)
+    json_value_t *value = json_parse_token(src, ptr, &_error);
+    if (!value) {
+      // json_parse_token no longer throws an error on end-of-input, so we need
+      // to check for that case here and return a more specific error.
+      if (!_error)
+        _error = json_error_new(strdup("Unexpected end of input in object"), 0);
+      free(key);
       goto return_error;
-
-    hashtable_set_steal(
-        object, decode_json_string(token->start, token->length, NULL), value);
-
-    // We allow trailing commas in objects, so we check for a comma after
-    // parsing a value.
-    if (*cursor < tokens->length &&
-        (&tokens->data[*cursor])->type == JSON_TOKEN_COMMA) {
-      (*cursor)++;
     }
+
+    hashtable_set_steal(object, key, value);
   }
 
   json_value_t *self = malloc(sizeof(*self));
@@ -445,42 +443,19 @@ return_error:
   return NULL;
 }
 
-json_value_t *json_parse_bool(const array_t *_tokens, size_t *cursor,
-                              json_error_t out *error) {
-  set_out_value(error, NULL);
-  json_error_t *_error = NULL;
-
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  check_out_of_bounds_token(tokens, cursor, _error, return_error);
-
-  json_token_t *token = &tokens->data[*cursor];
-  (*cursor)++;
-
-  json_value_t *self = malloc(sizeof(*self));
-  *self = (json_value_t){
-      .type = JSON_VALUE_TYPE_BOOL,
-      .value.boolean = token->type == JSON_TOKEN_TRUE,
-  };
-  return self;
-
-return_error:
-  set_out_value(error, _error);
-  if (!error)
-    json_error_destroy(&_error);
-  return NULL;
-}
-
-json_value_t *json_parse_string(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_string(const char *src, const char **ptr,
                                 json_error_t out *error) {
   set_out_value(error, NULL);
   json_error_t *_error = NULL;
 
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  check_out_of_bounds_token(tokens, cursor, _error, return_error);
-
-  json_token_t *token = &tokens->data[*cursor];
-  char *str = decode_json_string(token->start, token->length, NULL);
-  (*cursor)++;
+  const char *end = _get_string_end(*ptr + 1);
+  if (!end) {
+    _error = json_error_new(strdup("Unterminated string"), *ptr - src);
+    goto return_error;
+  }
+  size_t length = end - *ptr + 1; // This includes both quotes.
+  char *str = decode_json_string(*ptr, length, NULL);
+  *ptr += length;
 
   json_value_t *self = malloc(sizeof(*self));
   *self = (json_value_t){
@@ -496,21 +471,12 @@ return_error:
   return NULL;
 }
 
-json_value_t *json_parse_number(const array_t *_tokens, size_t *cursor,
-                                json_error_t out *error) {
+json_value_t *json_parse_number(__attribute__((unused)) const char *src,
+                                const char **ptr, json_error_t out *error) {
   set_out_value(error, NULL);
-  json_error_t *_error = NULL;
+  // json_error_t *_error = NULL;
 
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  check_out_of_bounds_token(tokens, cursor, _error, return_error);
-
-  json_token_t *token = &tokens->data[*cursor];
-  (*cursor)++;
-
-  // strtod handles all valid JSON number formats (integer, decimal, exponent).
-  // Since it stops parsing at the first invalid character, we can ignore the
-  // length of the token here, trusting that the lexer has already validated it.
-  double value = strtod(token->start, NULL);
+  double value = json_strtod(*ptr, (char **)ptr);
 
   json_value_t *self = malloc(sizeof(*self));
   *self = (json_value_t){
@@ -519,70 +485,56 @@ json_value_t *json_parse_number(const array_t *_tokens, size_t *cursor,
   };
   return self;
 
-return_error:
-  set_out_value(error, _error);
-  if (!error)
-    json_error_destroy(&_error);
-  return NULL;
+  // return_error:
+  //   set_out_value(error, _error);
+  //   if (!error)
+  //     json_error_destroy(&_error);
+  //   return NULL;
 }
 
-json_value_t *json_parse_null(const array_t *_tokens, size_t *cursor,
-                              json_error_t out *error) {
-  set_out_value(error, NULL);
-  json_error_t *_error = NULL;
-
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
-  check_out_of_bounds_token(tokens, cursor, _error, return_error);
-
-  (*cursor)++;
-
-  json_value_t *self = malloc(sizeof(*self));
-  *self = (json_value_t){
-      .type = JSON_VALUE_TYPE_NULL,
-  };
-  return self;
-
-return_error:
-  set_out_value(error, _error);
-  if (!error)
-    json_error_destroy(&_error);
-  return NULL;
-}
-
-json_value_t *json_parse_array(const array_t *_tokens, size_t *cursor,
+json_value_t *json_parse_array(const char *src, const char **ptr,
                                json_error_t out *error) {
   set_out_value(error, NULL);
-  ARRAY_OF(json_token_t) *tokens = (void *)_tokens;
   array_t *array = array_new(json_value_t *);
   json_error_t *_error = NULL;
 
   array->free_func = (array_free_func *)json_value_free;
 
-  check_out_of_bounds_token(tokens, cursor, _error, return_error);
-
-  if (tokens->data[*cursor].type != JSON_TOKEN_LBRACK) {
-    _error = json_error_new(strdup("Expected '[' at start of array"), 0);
-    goto return_error;
-  }
-  (*cursor)++;
-
   while (true) {
-    check_out_of_bounds_token(tokens, cursor, _error, return_error);
-    if (tokens->data[*cursor].type == JSON_TOKEN_RBRACK) {
-      (*cursor)++;
+    const char *peek = *ptr;
+    __auto_type token_type = _json_lex_get_next_token(src, &peek, &_error);
+    if (_error)
+      goto return_error;
+
+    if (token_type == JSON_TOKEN_RBRACK) {
+      *ptr = peek;
       break;
     }
 
-    json_value_t *value = json_parse_token(_tokens, cursor, error);
-    if (!value)
+    if (token_type == JSON_TOKEN_COMMA) {
+      *ptr = peek;
+      if (array->length == 0) {
+        _error = json_error_new(strdup("Leading comma in array"), 0);
+        goto return_error;
+      }
+      continue;
+    }
+
+    if (token_type == JSON_TOKEN_END) {
+      _error = json_error_new(strdup("Unexpected end of input in array"), 0);
       goto return_error;
+    }
+
+    // Don't commit the peek — let json_parse_token re-scan and handle the
+    // value token from the original position.
+    json_value_t *value = json_parse_token(src, ptr, &_error);
+    if (!value) {
+      if (!_error)
+        _error = json_error_new(strdup("Unexpected end of input in array"), 0);
+      goto return_error;
+    }
 
     array_push(array, value);
-
-    if (*cursor < tokens->length &&
-        tokens->data[*cursor].type == JSON_TOKEN_COMMA) {
-      (*cursor)++;
-    }
   }
 
   json_value_t *self = malloc(sizeof(*self));
@@ -631,32 +583,40 @@ bool json_parse_safe(const char *src, json_value_t out *result,
   set_out_value(result, NULL);
   set_out_value(error, NULL);
 
-  array_t *tokens = NULL;
-  json_error_t *lex_error = NULL;
+  json_error_t *_error = NULL;
 
-  if (!_json_lex(src, &tokens, &lex_error)) {
-    set_out_value(error, lex_error);
-    if (!error)
-      json_error_destroy(&lex_error);
-    return false;
+  const char **ptr = &src;
+  json_value_t *root = json_parse_token(src, ptr, &_error);
+
+  if (_error)
+    goto return_error;
+
+  if (!root) {
+    _error = json_error_new(strdup("Empty input"), 0);
+    goto return_error;
   }
 
-  size_t cursor = 0;
-  json_error_t *parse_error = NULL;
-  json_value_t *value = json_parse_token(tokens, &cursor, &parse_error);
-  array_destroy(&tokens);
-
-  if (!value) {
-    set_out_value(error, parse_error);
-    if (!error)
-      json_error_destroy(&parse_error);
-    return false;
+  __auto_type token_type = _json_lex_get_next_token(src, ptr, &_error);
+  if (_error || token_type != JSON_TOKEN_END) {
+    if (!_error)
+      _error =
+          json_error_new(strdup("Trailing characters after JSON value"), 0);
+    goto return_error;
   }
 
-  set_out_value(result, value);
-  if (!result)
-    json_value_destroy(&value);
+  if (result)
+    *result = root;
+  else
+    json_value_destroy(&root);
   return true;
+
+return_error:
+  if (root)
+    json_value_destroy(&root);
+  set_out_value(error, _error);
+  if (!error)
+    json_error_destroy(&_error);
+  return false;
 }
 
 void _json_dump(json_value_t *val, int indent_size, int indent_level) {
