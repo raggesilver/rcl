@@ -200,15 +200,18 @@ static void test_parse_nested_object(void) {
 }
 
 static void test_parse_trailing_comma(void) {
-  json_value_t *val = json_parse_assert("{\"a\": 1,}");
-  TEST_ASSERT_EQUAL_INT(JSON_VALUE_TYPE_OBJECT, val->type);
-  TEST_ASSERT_EQUAL_size_t(1, json_value_get_object(val)->length);
-  json_value_destroy(&val);
+  json_value_t *result = NULL;
+  json_error_t *error = NULL;
 
-  val = json_parse_assert("[1, 2, 3,]");
-  TEST_ASSERT_EQUAL_INT(JSON_VALUE_TYPE_ARRAY, val->type);
-  TEST_ASSERT_EQUAL_size_t(3, json_value_get_array(val)->length);
-  json_value_destroy(&val);
+  bool ok = json_parse_safe("{\"a\": 1,}", &result, &error);
+  TEST_ASSERT_FALSE(ok);
+  TEST_ASSERT_NULL(result);
+  json_error_destroy(&error);
+
+  ok = json_parse_safe("[1, 2, 3,]", &result, &error);
+  TEST_ASSERT_FALSE(ok);
+  TEST_ASSERT_NULL(result);
+  json_error_destroy(&error);
 }
 
 static void test_parse_safe_invalid(void) {

@@ -1,6 +1,6 @@
 
-#include <rcl/array.h>
 #include "unity.h"
+#include <rcl/array.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -267,12 +267,14 @@ static void array_test_filter_copy2(void) {
 
   array_t *copy = array_filter_copy(arr, char *, _filter_always_true, strdup);
 
+  ARRAY_OF(char *) *_arr = (void *)arr;
   ARRAY_OF(char *) *_copy = (void *)copy;
+
   TEST_ASSERT_EQUAL_size_t(arr->length, _copy->length);
   TEST_ASSERT_EQUAL_PTR(arr->free_func, _copy->free_func);
 
   for (size_t i = 0; i < arr->length; i++) {
-    TEST_ASSERT_EQUAL_STRING(((char **)arr->data)[i], _copy->data[i]);
+    TEST_ASSERT_EQUAL_STRING(_arr->data[i], _copy->data[i]);
   }
 
   array_destroy(&arr);

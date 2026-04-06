@@ -84,11 +84,12 @@ json_token_type_e _get_token_type(const char *ptr) {
   case '"':
     return JSON_TOKEN_STRING;
   default:
-    if (strncmp(ptr, "true", 4) == 0)
+    if (*ptr == 't' && ptr[1] == 'r' && ptr[2] == 'u' && ptr[3] == 'e')
       return JSON_TOKEN_TRUE;
-    if (strncmp(ptr, "false", 5) == 0)
+    if (*ptr == 'f' && ptr[1] == 'a' && ptr[2] == 'l' && ptr[3] == 's' &&
+        ptr[4] == 'e')
       return JSON_TOKEN_FALSE;
-    if (strncmp(ptr, "null", 4) == 0)
+    if (*ptr == 'n' && ptr[1] == 'u' && ptr[2] == 'l' && ptr[3] == 'l')
       return JSON_TOKEN_NULL;
     if (isdigit(*ptr) || *ptr == '-')
       return JSON_TOKEN_NUMBER;
@@ -387,22 +388,22 @@ json_value_t *json_parse_object(const char *src, const char **ptr,
 
   object->free_func = (hashtable_free_func_t)json_value_free;
 
+  // Check for empty object
+  {
+    const char *peek = *ptr;
+    __auto_type first = _json_lex_get_next_token(src, &peek, &_error);
+    if (_error)
+      goto return_error;
+    if (first == JSON_TOKEN_RBRACE) {
+      *ptr = peek;
+      goto done;
+    }
+  }
+
   while (true) {
     __auto_type token_type = _json_lex_get_next_token(src, ptr, &_error);
     if (_error)
       goto return_error;
-
-    if (token_type == JSON_TOKEN_RBRACE) {
-      break;
-    }
-
-    if (token_type == JSON_TOKEN_COMMA) {
-      if (object->length == 0) {
-        _error = json_error_new(strdup("Leading comma in object"), 0);
-        goto return_error;
-      }
-      continue;
-    }
 
     if (token_type != JSON_TOKEN_STRING) {
       _error = json_error_new(strdup("Expected string key in object"), 0);
@@ -426,8 +427,6 @@ json_value_t *json_parse_object(const char *src, const char **ptr,
 
     json_value_t *value = json_parse_token(src, ptr, &_error);
     if (!value) {
-      // json_parse_token no longer throws an error on end-of-input, so we need
-      // to check for that case here and return a more specific error.
       if (!_error)
         _error = json_error_new(strdup("Unexpected end of input in object"), 0);
       free(key);
@@ -435,8 +434,21 @@ json_value_t *json_parse_object(const char *src, const char **ptr,
     }
 
     hashtable_set_steal(object, key, value);
+
+    token_type = _json_lex_get_next_token(src, ptr, &_error);
+    if (_error)
+      goto return_error;
+
+    if (token_type == JSON_TOKEN_RBRACE)
+      break;
+
+    if (token_type != JSON_TOKEN_COMMA) {
+      _error = json_error_new(strdup("Expected ',' or '}' in object"), 0);
+      goto return_error;
+    }
   }
 
+done:;
   json_value_t *self = malloc(sizeof(*self));
   *self = (json_value_t){
       .type = JSON_VALUE_TYPE_OBJECT,
@@ -510,33 +522,17 @@ json_value_t *json_parse_array(const char *src, const char **ptr,
 
   array->free_func = (array_free_func *)json_value_free;
 
+  // Check for empty array
+  const char *peek = *ptr;
+  __auto_type first = _json_lex_get_next_token(src, &peek, &_error);
+  if (_error)
+    goto return_error;
+  if (first == JSON_TOKEN_RBRACK) {
+    *ptr = peek;
+    goto done;
+  }
+
   while (true) {
-    const char *peek = *ptr;
-    __auto_type token_type = _json_lex_get_next_token(src, &peek, &_error);
-    if (_error)
-      goto return_error;
-
-    if (token_type == JSON_TOKEN_RBRACK) {
-      *ptr = peek;
-      break;
-    }
-
-    if (token_type == JSON_TOKEN_COMMA) {
-      *ptr = peek;
-      if (array->length == 0) {
-        _error = json_error_new(strdup("Leading comma in array"), 0);
-        goto return_error;
-      }
-      continue;
-    }
-
-    if (token_type == JSON_TOKEN_END) {
-      _error = json_error_new(strdup("Unexpected end of input in array"), 0);
-      goto return_error;
-    }
-
-    // Don't commit the peek — let json_parse_token re-scan and handle the
-    // value token from the original position.
     json_value_t *value = json_parse_token(src, ptr, &_error);
     if (!value) {
       if (!_error)
@@ -545,8 +541,21 @@ json_value_t *json_parse_array(const char *src, const char **ptr,
     }
 
     array_push(array, value);
+
+    __auto_type token_type = _json_lex_get_next_token(src, ptr, &_error);
+    if (_error)
+      goto return_error;
+
+    if (token_type == JSON_TOKEN_RBRACK)
+      break;
+
+    if (token_type != JSON_TOKEN_COMMA) {
+      _error = json_error_new(strdup("Expected ',' or ']' in array"), 0);
+      goto return_error;
+    }
   }
 
+done:;
   json_value_t *self = malloc(sizeof(*self));
   *self = (json_value_t){
       .type = JSON_VALUE_TYPE_ARRAY,

@@ -116,16 +116,16 @@ array_t *array_new_full(array_init_t init);
  */
 #define array_map(arr, from_type, to_type, func)                               \
   ({                                                                           \
-    ARRAY_OF(from_type) *__arr = (void *)(arr);                                \
+    array_t *__arr = (arr);                                                    \
     size_t __cap =                                                              \
         __arr->length > 0 ? __arr->length : ARRAY_DEFAULT_CAPACITY;            \
     array_t *__res =                                                           \
         array_new_full((array_init_t){.capacity = __cap,                       \
                                       .item_size = sizeof(to_type),            \
                                       .free_func = NULL});                     \
-    ARRAY_OF(to_type) *__res_arr = (void *)__res;                              \
     for (size_t i = 0; i < __arr->length; i++) {                               \
-      __res_arr->data[i] = func(__arr->data[i]);                               \
+      ((to_type *)__res->data)[i] =                                            \
+          func(((from_type *)__arr->data)[i]);                                 \
     }                                                                          \
     __res->length = __arr->length;                                             \
     __res;                                                                     \
@@ -160,17 +160,19 @@ array_t *array_filter(array_t *self, array_filter_func *fn);
  */
 #define array_filter_copy(arr, type, filter_fn, copy_fn)                       \
   ({                                                                           \
-    ARRAY_OF(type) *__arr = (void *)(arr);                                     \
+    array_t *__arr = (arr);                                                    \
     array_t *__res = array_new_full(                                           \
         (array_init_t){.capacity = __arr->length ?: ARRAY_DEFAULT_CAPACITY,    \
                        .item_size = sizeof(type),                              \
-                       .free_func = ((array_t *)__arr)->free_func});           \
-    ARRAY_OF(type) *__res_arr = (void *)__res;                                 \
+                       .free_func = __arr->free_func});                        \
+    size_t __count = 0;                                                        \
     for (size_t i = 0; i < __arr->length; i++) {                               \
-      if (filter_fn(&__arr->data[i])) {                                        \
-        __res_arr->data[__res->length++] = copy_fn(__arr->data[i]);            \
+      if (filter_fn(&((type *)__arr->data)[i])) {                             \
+        ((type *)__res->data)[__count++] =                                     \
+            copy_fn(((type *)__arr->data)[i]);                                 \
       }                                                                        \
     }                                                                          \
+    __res->length = __count;                                                   \
     __res;                                                                     \
   })
 
