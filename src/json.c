@@ -1,3 +1,6 @@
+#if defined(__linux__)
+#define _GNU_SOURCE
+#endif
 #include "rcl/json.h"
 #include "rcl/array.h"
 #include "rcl/hashtable.h"
