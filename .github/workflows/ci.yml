@@ -24,7 +24,7 @@ jobs:
         env:
           CC: gcc
       - name: Run Tests
-        run: meson test -C builddir/ --wrap='valgrind --leak-check=full --error-exitcode=1' -v
+        run: meson test -C builddir/ --wrap="valgrind --leak-check=full --error-exitcode=1 --suppressions=$GITHUB_WORKSPACE/valgrind.supp" -v
       - name: Upload Test Log
         uses: actions/upload-artifact@v4
         if: failure()

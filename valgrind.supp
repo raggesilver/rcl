@@ -1,0 +1,13 @@
+# sparse_set_has() deliberately reads sparse[index] before it has ever been
+# written; the value is then validated against the dense array. That is the
+# whole point of a sparse set (no O(n) initialization), so it is not a bug.
+{
+   sparse_set_has_uninit_cond
+   Memcheck:Cond
+   fun:sparse_set_has
+}
+{
+   sparse_set_has_uninit_value8
+   Memcheck:Value8
+   fun:sparse_set_has
+}
