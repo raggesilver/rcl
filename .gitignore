@@ -2,3 +2,4 @@
 /subprojects/*
 !/subprojects/*.wrap
 !/subprojects/packagefiles/
+/docs/tutorials/*.pdf

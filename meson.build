@@ -18,6 +18,7 @@ sources = files(
   './src/array.c',
   './src/hashtable.c',
   './src/json.c',
+  './src/sparse_set.c',
   './src/string.c',
 )
 
@@ -101,4 +102,11 @@ if get_option('tests')
     dependencies: [rcl_dep, unity_dependency],
   )
   test('json', rcl_json_test_exe)
+
+  rcl_sparse_set_test_exe = executable(
+    'sparse_set',
+    'src' / 'sparse_set_test.c',
+    dependencies: [rcl_dep, unity_dependency],
+  )
+  test('sparse_set', rcl_sparse_set_test_exe)
 endif
