@@ -44,6 +44,7 @@ rcl_dep = declare_dependency(
 # Make this library usable from the system's
 # package manager.
 install_headers('src/rcl/array.h', subdir: 'rcl')
+install_headers('src/rcl/common.h', subdir: 'rcl')
 install_headers('src/rcl/hashtable.h', subdir: 'rcl')
 install_headers('src/rcl/json.h', subdir: 'rcl')
 install_headers('src/rcl/sparse_set.h', subdir: 'rcl')

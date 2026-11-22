@@ -523,7 +523,7 @@ json_value_t *json_parse_array(const char *src, const char **ptr,
       array_new(json_value_t *, .capacity = DEFAULT_JSON_ARRAY_CAPACITY);
   json_error_t *_error = NULL;
 
-  array->free_func = (array_free_func *)json_value_free;
+  array_set_free_func(array, (array_free_func *)json_value_free);
 
   // Check for empty array
   const char *peek = *ptr;
