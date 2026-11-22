@@ -45,6 +45,8 @@ rcl_dep = declare_dependency(
 # package manager.
 install_headers('src/rcl/array.h', subdir: 'rcl')
 install_headers('src/rcl/hashtable.h', subdir: 'rcl')
+install_headers('src/rcl/json.h', subdir: 'rcl')
+install_headers('src/rcl/sparse_set.h', subdir: 'rcl')
 install_headers('src/rcl/string.h', subdir: 'rcl')
 
 pkg_mod = import('pkgconfig')
