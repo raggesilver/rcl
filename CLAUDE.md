@@ -79,8 +79,12 @@ meson test -C /tmp/vgb --wrap="valgrind --leak-check=full --error-exitcode=1 --s
 - No NULL checks on malloc/calloc/realloc — assumes sufficient memory
 - Headers live in `src/rcl/`, implementations in `src/`, tests in `src/` as `*_test.c`
 - Tests use the Unity framework
-- `#define out *` macro for marking out-parameters
-- `set_out_value(ptr, val)` macro for safely writing to optional out-parameters
+- Out-parameters: marked with the `out` macro and written with
+  `set_out_value(ptr, val)`, both in `rcl/common.h`. `out` is just `*`, so
+  `size_t out index_out` is a `size_t *`; don't write `out *`. Out-parameters
+  are **always** written, even on failure (zero or NULL), as in Vala/GNOME, so
+  a caller can never read an uninitialised one. Optional ones may be NULL.
+  New functions that find or remove something return `bool` for success.
 - Document public API in the header with `/** ... */` comments: a description,
   `@param` for each parameter and `@return`. Headers include what they use
   (`<stdbool.h>`, `<stddef.h>`) instead of relying on other headers.
