@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795309674085,
+  "lastUpdate": 1795345339146,
   "repoUrl": "https://github.com/raggesilver/rcl",
   "entries": {
     "Benchmark": [
@@ -335,6 +335,90 @@ window.BENCHMARK_DATA = {
           {
             "name": "cJSON - bench/500_keys.json",
             "value": 160.47,
+            "unit": "us/op"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16908491+raggesilver@users.noreply.github.com",
+            "name": "Paulo Queiroz",
+            "username": "raggesilver"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dfce017f098c9cf728779f3ac704fe05dd3569e8",
+          "message": "Merge pull request #3 from raggesilver/rcl-4-array-helpers\n\nArray: bsearch, swap-remove, array_at, foreach and const free_func (RCL-4)",
+          "timestamp": "2026-11-22T08:01:56-03:00",
+          "tree_id": "3b75575a6ea2f41a4130bb4ced8c6759d8213b75",
+          "url": "https://github.com/raggesilver/rcl/commit/dfce017f098c9cf728779f3ac704fe05dd3569e8"
+        },
+        "date": 1795345338711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rcl - Small object",
+            "value": 0.48,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Small object",
+            "value": 0.32,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Flat object (1000 keys)",
+            "value": 266.42,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Flat object (1000 keys)",
+            "value": 141.91,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Nested arrays (depth 100)",
+            "value": 12.73,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Nested arrays (depth 100)",
+            "value": 6.54,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Mixed array (500 objects)",
+            "value": 767.36,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Mixed array (500 objects)",
+            "value": 541.96,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/canada.json",
+            "value": 32302.24,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/canada.json",
+            "value": 33516.59,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/500_keys.json",
+            "value": 164.73,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/500_keys.json",
+            "value": 148.51,
             "unit": "us/op"
           }
         ]
