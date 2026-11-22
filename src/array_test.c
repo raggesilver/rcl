@@ -729,6 +729,242 @@ static void array_set_free_func_null_is_allowed_for_any_item_size(void) {
   array_destroy(&arr);
 }
 
+/* ---- array_foreach ---- */
+
+static void array_foreach_visits_every_element_with_index(void) {
+  const int values[] = {10, 20, 30, 40};
+  array_t *arr = int_array_of(values, 4);
+
+  size_t visited = 0;
+  array_foreach(arr, int, it, i) {
+    TEST_ASSERT_EQUAL_size_t(visited, i);
+    TEST_ASSERT_EQUAL_PTR((int *)arr->data + i, it);
+    TEST_ASSERT_EQUAL_INT(values[i], *it);
+    visited++;
+  }
+  TEST_ASSERT_EQUAL_size_t(4, visited);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_empty_array(void) {
+  array_t *arr = array_new(int, );
+
+  int visited = 0;
+  array_foreach(arr, int, it, i) { visited += *it + (int)i; }
+  TEST_ASSERT_EQUAL_INT(0, visited);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_can_modify_elements(void) {
+  const int values[] = {1, 2, 3};
+  array_t *arr = int_array_of(values, 3);
+
+  array_foreach(arr, int, it, i) { *it *= 10; }
+
+  TEST_ASSERT_EQUAL_INT(10, ((int *)arr->data)[0]);
+  TEST_ASSERT_EQUAL_INT(20, ((int *)arr->data)[1]);
+  TEST_ASSERT_EQUAL_INT(30, ((int *)arr->data)[2]);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_break_stops_the_whole_loop(void) {
+  const int values[] = {1, 2, 3, 4, 5};
+  array_t *arr = int_array_of(values, 5);
+
+  int visited = 0;
+  array_foreach(arr, int, it, i) {
+    visited++;
+    if (*it == 3) {
+      break;
+    }
+  }
+  TEST_ASSERT_EQUAL_INT(3, visited);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_continue_skips_to_the_next_element(void) {
+  const int values[] = {1, 2, 3, 4, 5};
+  array_t *arr = int_array_of(values, 5);
+
+  int sum = 0;
+  array_foreach(arr, int, it, i) {
+    if (*it % 2 == 0) {
+      continue;
+    }
+    sum += *it;
+  }
+  TEST_ASSERT_EQUAL_INT(1 + 3 + 5, sum);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_nested_loops(void) {
+  const int outer_values[] = {1, 2, 3};
+  const int inner_values[] = {10, 20};
+  array_t *outer = int_array_of(outer_values, 3);
+  array_t *inner = int_array_of(inner_values, 2);
+
+  int sum = 0;
+  size_t pairs = 0;
+  array_foreach(outer, int, a, ai) {
+    array_foreach(inner, int, b, bi) {
+      sum += *a * *b;
+      pairs++;
+      if (bi == 0) {
+        TEST_ASSERT_EQUAL_PTR((int *)inner->data, b);
+      }
+    }
+    TEST_ASSERT_EQUAL_PTR((int *)outer->data + ai, a);
+  }
+  TEST_ASSERT_EQUAL_size_t(6, pairs);
+  TEST_ASSERT_EQUAL_INT((1 + 2 + 3) * (10 + 20), sum);
+
+  array_destroy(&outer);
+  array_destroy(&inner);
+}
+
+static void array_foreach_break_in_inner_loop_only_stops_the_inner(void) {
+  const int values[] = {1, 2, 3};
+  array_t *outer = int_array_of(values, 3);
+  array_t *inner = int_array_of(values, 3);
+
+  int outer_visits = 0, inner_visits = 0;
+  array_foreach(outer, int, a, ai) {
+    (void)a;
+    (void)ai;
+    outer_visits++;
+    array_foreach(inner, int, b, bi) {
+      (void)b;
+      (void)bi;
+      inner_visits++;
+      break;
+    }
+  }
+  TEST_ASSERT_EQUAL_INT(3, outer_visits);
+  TEST_ASSERT_EQUAL_INT(3, inner_visits);
+
+  array_destroy(&outer);
+  array_destroy(&inner);
+}
+
+static void array_foreach_structs_and_pointer_elements(void) {
+  array_t *entries = array_new(entry_t, );
+  for (int i = 0; i < 3; i++) {
+    array_push(entries, ((entry_t){.layer = i, .id = i * 100}));
+  }
+  int id_sum = 0;
+  array_foreach(entries, entry_t, e, i) {
+    TEST_ASSERT_EQUAL_INT((int)i, e->layer);
+    id_sum += e->id;
+  }
+  TEST_ASSERT_EQUAL_INT(300, id_sum);
+  array_destroy(&entries);
+
+  // For `char *` elements `it` is a `char **`.
+  array_t *strs = array_new(char *);
+  array_push(strs, "a");
+  array_push(strs, "b");
+  size_t total_len = 0;
+  array_foreach(strs, char *, s, i) { total_len += strlen(*s); }
+  TEST_ASSERT_EQUAL_size_t(2, total_len);
+  array_destroy(&strs);
+}
+
+/* ---- array_foreach_value ---- */
+
+static void array_foreach_value_gives_copies_and_index(void) {
+  const int values[] = {10, 20, 30};
+  array_t *arr = int_array_of(values, 3);
+
+  size_t visited = 0;
+  array_foreach_value(arr, int, v, i) {
+    TEST_ASSERT_EQUAL_size_t(visited, i);
+    TEST_ASSERT_EQUAL_INT(values[i], v);
+    v = 0; // only changes the copy
+    visited++;
+  }
+  TEST_ASSERT_EQUAL_size_t(3, visited);
+  TEST_ASSERT_EQUAL_INT(10, ((int *)arr->data)[0]);
+  TEST_ASSERT_EQUAL_INT(30, ((int *)arr->data)[2]);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_value_empty_array_reads_nothing(void) {
+  array_t *arr = array_new(int, .capacity = 1);
+
+  int visited = 0;
+  array_foreach_value(arr, int, v, i) { visited += v + (int)i; }
+  TEST_ASSERT_EQUAL_INT(0, visited);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_value_break_and_continue(void) {
+  const int values[] = {1, 2, 3, 4, 5};
+  array_t *arr = int_array_of(values, 5);
+
+  int sum = 0;
+  array_foreach_value(arr, int, v, i) {
+    if (v % 2 == 0) {
+      continue;
+    }
+    if (v == 5) {
+      break;
+    }
+    sum += v;
+  }
+  TEST_ASSERT_EQUAL_INT(1 + 3, sum);
+
+  array_destroy(&arr);
+}
+
+static void array_foreach_value_pointer_elements_and_structs(void) {
+  array_t *strs = array_new(char *);
+  array_push(strs, "ab");
+  array_push(strs, "cde");
+
+  size_t total_len = 0;
+  array_foreach_value(strs, char *, s, i) { total_len += strlen(s); }
+  TEST_ASSERT_EQUAL_size_t(5, total_len);
+  array_destroy(&strs);
+
+  array_t *entries = array_new(entry_t, );
+  for (int i = 0; i < 3; i++) {
+    array_push(entries, ((entry_t){.layer = i, .id = i * 100}));
+  }
+  int id_sum = 0;
+  array_foreach_value(entries, entry_t, e, i) {
+    TEST_ASSERT_EQUAL_INT((int)i, e.layer);
+    id_sum += e.id;
+  }
+  TEST_ASSERT_EQUAL_INT(300, id_sum);
+  array_destroy(&entries);
+}
+
+static void array_foreach_value_nested_with_array_foreach(void) {
+  const int values[] = {1, 2, 3};
+  array_t *outer = int_array_of(values, 3);
+  array_t *inner = int_array_of(values, 3);
+
+  int sum = 0;
+  array_foreach_value(outer, int, a, ai) {
+    TEST_ASSERT_EQUAL_INT(values[ai], a);
+    array_foreach(inner, int, b, bi) {
+      TEST_ASSERT_EQUAL_INT(values[bi], *b);
+      sum += a * *b;
+    }
+  }
+  TEST_ASSERT_EQUAL_INT((1 + 2 + 3) * (1 + 2 + 3), sum);
+
+  array_destroy(&outer);
+  array_destroy(&inner);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -770,6 +1006,19 @@ int main(void) {
   RUN_TEST(array_set_free_func_applies_to_existing_elements);
   RUN_TEST(array_set_free_func_replaces_and_clears);
   RUN_TEST(array_set_free_func_null_is_allowed_for_any_item_size);
+  RUN_TEST(array_foreach_visits_every_element_with_index);
+  RUN_TEST(array_foreach_empty_array);
+  RUN_TEST(array_foreach_can_modify_elements);
+  RUN_TEST(array_foreach_break_stops_the_whole_loop);
+  RUN_TEST(array_foreach_continue_skips_to_the_next_element);
+  RUN_TEST(array_foreach_nested_loops);
+  RUN_TEST(array_foreach_break_in_inner_loop_only_stops_the_inner);
+  RUN_TEST(array_foreach_structs_and_pointer_elements);
+  RUN_TEST(array_foreach_value_gives_copies_and_index);
+  RUN_TEST(array_foreach_value_empty_array_reads_nothing);
+  RUN_TEST(array_foreach_value_break_and_continue);
+  RUN_TEST(array_foreach_value_pointer_elements_and_structs);
+  RUN_TEST(array_foreach_value_nested_with_array_foreach);
 
   return UNITY_END();
 }

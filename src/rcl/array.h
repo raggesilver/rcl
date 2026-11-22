@@ -1,9 +1,9 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
 #include "rcl/common.h"
 
@@ -123,6 +123,57 @@ static inline void *array_at(const array_t *arr, size_t index) {
 }
 
 /**
+ * Loop over every element of an array, like a `for` loop. The body follows the
+ * macro, and `break` and `continue` work as usual:
+ *
+ *     array_foreach(arr, entry_t, it, i) {
+ *       printf("%zu: %d\n", i, it->layer);
+ *     }
+ *
+ * `it` and `i` are declared by the macro and are scoped to the loop.
+ *
+ * `arr` is evaluated more than once, so it must not have side effects. The
+ * length is read once when the loop starts: do not push to or delete from the
+ * array inside the loop, as that can reallocate the data (leaving `it`
+ * dangling) or change the length.
+ *
+ * @param arr the array to loop over.
+ * @param type the type of the elements. It must match the array's `item_size`.
+ * @param it the name of the variable holding a `type *` to the current element.
+ * For an array of `char *`, `type` is `char *` and `it` is a `char **`: the
+ * address of the slot, not the stored pointer.
+ * @param i the name of the `size_t` variable holding the current index.
+ */
+#define array_foreach(arr, type, it, i)                                        \
+  for (size_t i = 0, __n = (arr)->length, __once = 1; __once; __once = 0)      \
+    for (type *it = (type *)(arr)->data; i < __n; i++, it++)
+
+/**
+ * Like `array_foreach`, but `it` is a copy of the element instead of a pointer
+ * to it. This is handier for arrays of pointers, where it gives you the stored
+ * pointer (`char *`) rather than the address of its slot (`char **`):
+ *
+ *     array_foreach_value(names, char *, name, i) {
+ *       printf("%zu: %s\n", i, name);
+ *     }
+ *
+ * Because `it` is a copy, assigning to it does not change the array: use
+ * `array_foreach` to modify elements in place. Large structs are copied on
+ * every iteration.
+ *
+ * The same rules as `array_foreach` apply: `arr` is evaluated more than once,
+ * and the array must not be pushed to or deleted from inside the loop.
+ *
+ * @param arr the array to loop over.
+ * @param type the type of the elements. It must match the array's `item_size`.
+ * @param it the name of the variable holding a copy of the current element.
+ * @param i the name of the `size_t` variable holding the current index.
+ */
+#define array_foreach_value(arr, type, it, i)                                  \
+  for (size_t i = 0, __n = (arr)->length, __once = 1; __once; __once = 0)      \
+    for (type it; i < __n && ((it = ((type *)(arr)->data)[i]), 1); i++)
+
+/**
  * Add an item to the end of the array.
  *
  * @param arr the array to add the item to.
@@ -157,15 +208,11 @@ static inline void *array_at(const array_t *arr, size_t index) {
 #define array_map(arr, from_type, to_type, func)                               \
   ({                                                                           \
     array_t *__arr = (arr);                                                    \
-    size_t __cap =                                                              \
-        __arr->length > 0 ? __arr->length : ARRAY_DEFAULT_CAPACITY;            \
-    array_t *__res =                                                           \
-        array_new_full((array_init_t){.capacity = __cap,                       \
-                                      .item_size = sizeof(to_type),            \
-                                      .free_func = NULL});                     \
+    size_t __cap = __arr->length > 0 ? __arr->length : ARRAY_DEFAULT_CAPACITY; \
+    array_t *__res = array_new_full((array_init_t){                            \
+        .capacity = __cap, .item_size = sizeof(to_type), .free_func = NULL});  \
     for (size_t i = 0; i < __arr->length; i++) {                               \
-      ((to_type *)__res->data)[i] =                                            \
-          func(((from_type *)__arr->data)[i]);                                 \
+      ((to_type *)__res->data)[i] = func(((from_type *)__arr->data)[i]);       \
     }                                                                          \
     __res->length = __arr->length;                                             \
     __res;                                                                     \
@@ -207,9 +254,8 @@ array_t *array_filter(array_t *self, array_filter_func *fn);
                        .free_func = __arr->free_func});                        \
     size_t __count = 0;                                                        \
     for (size_t i = 0; i < __arr->length; i++) {                               \
-      if (filter_fn(&((type *)__arr->data)[i])) {                             \
-        ((type *)__res->data)[__count++] =                                     \
-            copy_fn(((type *)__arr->data)[i]);                                 \
+      if (filter_fn(&((type *)__arr->data)[i])) {                              \
+        ((type *)__res->data)[__count++] = copy_fn(((type *)__arr->data)[i]);  \
       }                                                                        \
     }                                                                          \
     __res->length = __count;                                                   \
@@ -266,15 +312,16 @@ __attribute__((nonnull(3))) void array_remove(array_t *arr, size_t index,
  *
  * @param arr the array to search. Must be sorted by `cmp`.
  * @param key a pointer to the value to look for. Like the array elements, it is
- * passed to `cmp` as a pointer (for an array of `char *`, `key` is a `char **`).
+ * passed to `cmp` as a pointer (for an array of `char *`, `key` is a `char
+ * **`).
  * @param cmp the comparison function. `key` is passed as the first argument and
  * an element of the array as the second.
  * @param index_out where to store the index of the match. May be NULL if the
  * index is not needed. Set to 0 when nothing is found.
  * @return true if a matching element was found, false otherwise.
  */
-bool array_bsearch(const array_t *arr, const void *key,
-                   array_compare_func *cmp, size_t out index_out);
+bool array_bsearch(const array_t *arr, const void *key, array_compare_func *cmp,
+                   size_t out index_out);
 
 /**
  * Delete an element by swapping the last element into its place. O(1), but the
