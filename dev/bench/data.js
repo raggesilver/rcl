@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795308943525,
+  "lastUpdate": 1795309674085,
   "repoUrl": "https://github.com/raggesilver/rcl",
   "entries": {
     "Benchmark": [
@@ -251,6 +251,90 @@ window.BENCHMARK_DATA = {
           {
             "name": "cJSON - bench/500_keys.json",
             "value": 142.35,
+            "unit": "us/op"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16908491+raggesilver@users.noreply.github.com",
+            "name": "Paulo Queiroz",
+            "username": "raggesilver"
+          },
+          "committer": {
+            "email": "16908491+raggesilver@users.noreply.github.com",
+            "name": "Paulo Queiroz",
+            "username": "raggesilver"
+          },
+          "distinct": true,
+          "id": "7de4aa06291fad307b4e165d4410591b7ca10324",
+          "message": "Add CLAUDE.md with project workflow and conventions",
+          "timestamp": "2026-11-21T22:07:11-03:00",
+          "tree_id": "bc6a817571a5dbbf27feb4a6e1a6bfc854d1f52f",
+          "url": "https://github.com/raggesilver/rcl/commit/7de4aa06291fad307b4e165d4410591b7ca10324"
+        },
+        "date": 1795309673773,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rcl - Small object",
+            "value": 0.54,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Small object",
+            "value": 0.38,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Flat object (1000 keys)",
+            "value": 237.95,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Flat object (1000 keys)",
+            "value": 181.49,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Nested arrays (depth 100)",
+            "value": 15.72,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Nested arrays (depth 100)",
+            "value": 9.16,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Mixed array (500 objects)",
+            "value": 827.37,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Mixed array (500 objects)",
+            "value": 674.55,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/canada.json",
+            "value": 33645.71,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/canada.json",
+            "value": 37435.78,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/500_keys.json",
+            "value": 165.54,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/500_keys.json",
+            "value": 160.47,
             "unit": "us/op"
           }
         ]
