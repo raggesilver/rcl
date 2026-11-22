@@ -1,14 +1,12 @@
 #pragma once
 
 #include "rcl/array.h"
+#include "rcl/common.h"
 #include "rcl/hashtable.h"
 
 #ifndef RCL_JSON_ASSERT_GETS
 #define RCL_JSON_ASSERT_GETS 1
 #endif
-
-#define out *
-#define set_out_value(ptr, val) do { if ((ptr)) *(ptr) = (val); } while (0)
 
 typedef struct json_error_s {
   char *message;
