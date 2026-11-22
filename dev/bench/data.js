@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775513214198,
+  "lastUpdate": 1795308762444,
   "repoUrl": "https://github.com/raggesilver/rcl",
   "entries": {
     "Benchmark": [
@@ -83,6 +83,90 @@ window.BENCHMARK_DATA = {
           {
             "name": "cJSON - bench/500_keys.json",
             "value": 153.13,
+            "unit": "us/op"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16908491+raggesilver@users.noreply.github.com",
+            "name": "Paulo Queiroz",
+            "username": "raggesilver"
+          },
+          "committer": {
+            "email": "16908491+raggesilver@users.noreply.github.com",
+            "name": "Paulo Queiroz",
+            "username": "raggesilver"
+          },
+          "distinct": true,
+          "id": "67612d56b1bc677447a5f26e36618f9e4a3718a3",
+          "message": "Suppress sparse_set_has uninitialised read in valgrind CI\n\nsparse_set_has() reads sparse[index] before it is ever written and then\nvalidates it against the dense array, so valgrind reports it. Suppress it\nfor that function only.",
+          "timestamp": "2026-11-21T21:51:37-03:00",
+          "tree_id": "38a23ebb3fac7688cf4cb12d036406889275c243",
+          "url": "https://github.com/raggesilver/rcl/commit/67612d56b1bc677447a5f26e36618f9e4a3718a3"
+        },
+        "date": 1795308761755,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "rcl - Small object",
+            "value": 0.36,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Small object",
+            "value": 0.24,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Flat object (1000 keys)",
+            "value": 184.16,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Flat object (1000 keys)",
+            "value": 104.82,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Nested arrays (depth 100)",
+            "value": 8.95,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Nested arrays (depth 100)",
+            "value": 4.85,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - Mixed array (500 objects)",
+            "value": 562.56,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - Mixed array (500 objects)",
+            "value": 386.14,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/canada.json",
+            "value": 23445.81,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/canada.json",
+            "value": 26435.29,
+            "unit": "us/op"
+          },
+          {
+            "name": "rcl - bench/500_keys.json",
+            "value": 119.75,
+            "unit": "us/op"
+          },
+          {
+            "name": "cJSON - bench/500_keys.json",
+            "value": 107.8,
             "unit": "us/op"
           }
         ]
