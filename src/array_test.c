@@ -204,7 +204,7 @@ static void array_test_map2(void) {
   array_push(arr, 402);
 
   array_t *_res = array_map(arr, int, char *, map_int_to_str);
-  _res->free_func = free;
+  array_set_free_func(_res, free);
 
   ARRAY_OF(char *) *res = (void *)_res;
 
@@ -675,6 +675,60 @@ static void array_swap_remove_structs(void) {
   array_destroy(&arr);
 }
 
+/* ---- array_set_free_func ---- */
+
+static void array_new_full_sets_free_func(void) {
+  array_t *arr = array_new(char *, .free_func = &counting_free);
+  TEST_ASSERT_EQUAL_PTR(counting_free, arr->free_func);
+
+  array_t *plain = array_new(char *);
+  TEST_ASSERT_NULL(plain->free_func);
+
+  array_destroy(&plain);
+  array_destroy(&arr);
+}
+
+static void array_set_free_func_applies_to_existing_elements(void) {
+  array_t *arr = array_new(char *);
+  array_push(arr, strdup("a"));
+  array_push(arr, strdup("b"));
+
+  array_set_free_func(arr, counting_free);
+  TEST_ASSERT_EQUAL_PTR(counting_free, arr->free_func);
+  TEST_ASSERT_EQUAL_INT(0, free_count); // setting frees nothing
+
+  array_destroy(&arr);
+  TEST_ASSERT_EQUAL_INT(2, free_count);
+}
+
+static void array_set_free_func_replaces_and_clears(void) {
+  array_t *arr = array_new(char *, .free_func = &counting_free);
+  array_push(arr, strdup("a"));
+
+  array_set_free_func(arr, NULL);
+  TEST_ASSERT_NULL(arr->free_func);
+
+  // Cleared: deleting no longer frees, so the caller owns the string.
+  char *removed = NULL;
+  array_remove(arr, 0, &removed);
+  TEST_ASSERT_EQUAL_INT(0, free_count);
+  free(removed);
+
+  array_push(arr, strdup("b"));
+  array_set_free_func(arr, counting_free);
+  array_delete(arr, 0);
+  TEST_ASSERT_EQUAL_INT(1, free_count);
+
+  array_destroy(&arr);
+}
+
+static void array_set_free_func_null_is_allowed_for_any_item_size(void) {
+  array_t *arr = array_new(entry_t, );
+  array_set_free_func(arr, NULL);
+  TEST_ASSERT_NULL(arr->free_func);
+  array_destroy(&arr);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -712,6 +766,10 @@ int main(void) {
   RUN_TEST(array_swap_remove_out_of_bounds_zeroes_out);
   RUN_TEST(array_swap_remove_does_not_free);
   RUN_TEST(array_swap_remove_structs);
+  RUN_TEST(array_new_full_sets_free_func);
+  RUN_TEST(array_set_free_func_applies_to_existing_elements);
+  RUN_TEST(array_set_free_func_replaces_and_clears);
+  RUN_TEST(array_set_free_func_null_is_allowed_for_any_item_size);
 
   return UNITY_END();
 }

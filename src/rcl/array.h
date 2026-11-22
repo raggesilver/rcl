@@ -49,10 +49,13 @@ typedef struct s_array {
   /**
    * A function that frees an element of the array. If set, it will be called on
    * each element of the array when the array is destroyed or an element is
-   * destroyed. Mind you, setting a function for non-pointer types will result
-   * in wonderful segfaults.
+   * destroyed.
+   *
+   * It can only be set with `array_new_full` or `array_set_free_func`, which
+   * assert that `item_size` is `sizeof(void *)`: elements are passed to the
+   * function by value, so they must be pointers. Do not write to it directly.
    */
-  array_free_func *free_func;
+  array_free_func *const free_func;
 } array_t;
 
 typedef struct s_array_init {
@@ -64,10 +67,26 @@ typedef struct s_array_init {
 /**
  * Create a new, empty array.
  *
+ * If `init.free_func` is set, `init.item_size` must be `sizeof(void *)`. This
+ * is checked with `assert`, so it is not enforced when compiled with `NDEBUG`.
+ *
  * @param init the initialization parameters for the array.
  * @return a pointer to the new array.
  */
 array_t *array_new_full(array_init_t init);
+
+/**
+ * Set (or clear) the function used to free the elements of an array.
+ *
+ * Nothing is freed now: this only changes what happens to the elements that are
+ * in the array, and the ones added later, when they are deleted or the array is
+ * freed. `item_size` must be `sizeof(void *)` unless `func` is NULL. This is
+ * checked with `assert`, so it is not enforced when compiled with `NDEBUG`.
+ *
+ * @param arr the array.
+ * @param func the function that frees an element, or NULL for none.
+ */
+void array_set_free_func(array_t *arr, array_free_func *func);
 
 #define array_new(type, ...)                                                   \
   array_new_full((array_init_t){.capacity = ARRAY_DEFAULT_CAPACITY,            \
@@ -82,7 +101,7 @@ array_t *array_new_full(array_init_t init);
     size_t length;                                                             \
     size_t item_size;                                                          \
                                                                                \
-    array_free_func *free_func;                                                \
+    array_free_func *const free_func;                                          \
   }
 
 /**
@@ -126,7 +145,8 @@ static inline void *array_at(const array_t *arr, size_t index) {
  * a new value in the new array.
  *
  * Be VERY CAREFUL, as this function does not set a free_func on the new array.
- * If you do not do that yourself, you may create a memory leak.
+ * If you do not do that yourself with `array_set_free_func`, you may create a
+ * memory leak.
  *
  * @param arr the source array
  * @param from_type type of elements on source array
