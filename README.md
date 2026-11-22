@@ -23,6 +23,9 @@ library unless you know what you're doing.
   `arr->data` with any type.
 - `string_t` — String. Includes the basic stuff you'd expect from a string
   type in a modern language.
+- `sparse_set_t` — Sparse set mapping integer ids (`0..max_items`) to values.
+  O(1) add, remove, lookup and clear, with members packed contiguously for
+  fast iteration. Order is not preserved across removals.
 
 ## JSON Parser
 
